@@ -14,10 +14,10 @@ taille: 141,000 users uniques, 1.6 millions d’artistes uniques, 24.2 millions 
 
 ### Questions
 Dans le cadre du projet, nous chercherons à répondre à 4 questions: 
-Comment recommander des artistes/musiques “susceptibles” d’intéresser un utilisateur à partir des goûts de milliers d’autres utilisateurs et de sa liste de lecture ?
-Comment recommander des artistes aux utilisateurs à partir des tendances d’écoutes (artistes/albums les plus écoutés susceptibles d'intéresser un utilisateur)
-Quels sont les artistes/albums les plus écoutés/populaires par décennie ?
-Comment réaliser un ranking des années selon leur nombre total d’écoutes cumulées ? en déduire la ou les décennies les plus actives
+- Comment recommander des artistes/musiques “susceptibles” d’intéresser un utilisateur à partir des goûts de milliers d’autres utilisateurs et de sa liste de lecture ?
+- Comment recommander des artistes aux utilisateurs à partir des tendances d’écoutes (artistes/albums les plus écoutés susceptibles d'intéresser un utilisateur)
+- Quels sont les artistes/albums les plus écoutés/populaires par décennie ?
+- Comment réaliser un ranking des années selon leur nombre total d’écoutes cumulées ? en déduire la ou les décennies les plus actives
 
 ### Périmètre
 Notre dataset étant relativement limité en termes de catégorie de données, nous ferons très certainement usage de Data augmentation, pour récupérer par exemple le genre musical propre à chaque artiste.

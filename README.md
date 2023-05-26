@@ -42,5 +42,4 @@ Dans le cadre du projet, nous chercherons à répondre à 4 questions:
 - quel(s) sont les genres les plus populaires par année (ranking top n) et les plus populaires au total ?
 - quelle est l'année qui comptabilise le plus de chansons produites ?
 - quel est le classement des pays selon leur nombre d'artistes (ranking)
-- quel est le niveau sonore moyen par genre musical ?
-- quel est le BPM (battements par minute) moyen par genre musical ?
+- quel est le niveau sonore et le BPM moyen par genre musical ?

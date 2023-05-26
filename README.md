@@ -46,4 +46,4 @@ Dans le cadre du projet, nous chercherons à répondre à 4 questions:
 - quel(s) sont les genres les plus produits par année (ranking top n) et les plus populaires au total, quelle est l'année qui comptabilise le plus de chansons produites, quel est le classement des pays selon leur nombre d'artistes (ranking)
 - quel est le niveau sonore moyen et le BPM moyen (battement par minute) par genre musical ?
 - Comment prédire le genre musical d'une musique à partir des caractéristiques d'autres musiques (niveau sonore, tempo, gamme..) -> Machine learning
-- Dans une optique de recommandation d'un artiste à un utilisateur, comment pourrait-on mesurer la similarité entre artistes ?
+- Dans une optique de recommandation d'un artiste à un utilisateur, comment pourrait-on mesurer la similarité entre artistes ? -> Machne learning

@@ -58,6 +58,7 @@ Dans le cadre du projet, nous chercherons à répondre à 4 questions:
 ### A faire
 - multiprocessing, préférablement avec spark, de la data augmentation pour les features "artist_location" et "artist_genre", sinon pour 1M de musiques, nous allons périr
 - question 3 et 4 (machine learning)
+- illustrer les Q1 Q2 avec des beaux graphiques !
 - des libraires scala permettent de faire de la visualisation de données, nous pourrions par example créer une map du monde et appliquer un code couleur représentant la densité d'artistes par pays
 
 ### Remarques

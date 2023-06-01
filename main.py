@@ -20,7 +20,7 @@ csv_path = 'data/data.csv'
 csv_file = pd.read_csv(csv_path)
 copy_file = csv_file.copy()
 api_key = "059e637024c2da6d558a09dfa118a79a"
-i = [0]
+global i = 0
 
 
 # *****************************************************************************
@@ -28,17 +28,17 @@ i = [0]
 # *****************************************************************************
 
 # Get the country of an artist based on his Long and Lat coordinates
-def get_country(latitude, longitude, df, i):
+def get_country(latitude, longitude, df):
     if latitude is None or longitude is None or np.isnan(latitude) or np.isnan(longitude):
-        df['artist_location'][i[0]] = np.nan
-        i[0] += 1
-        return np.nan, i[0]
+        df['artist_location'][i] = np.nan
+        i += 1
+        return np.nan
     geolocator = Nominatim(user_agent="geo_app")
     location = geolocator.reverse(f"{latitude}, {longitude}", exactly_one=True)
     if location is not None and 'address' in location.raw:
-        df['artist_location'][i[0]] = location.raw['address'].get('country', '')
-        i[0] += 1
-        return location.raw['address'].get('country', ''), i[0]
+        df['artist_location'][i] = location.raw['address'].get('country', '')
+        i += 1
+        return location.raw['address'].get('country', '')
     return None
 
 # Get the music genre of an artiste based on his name and by using Lastfm's API
@@ -57,12 +57,12 @@ def get_artist_genre(artist_name, df):
         try:
             artist = data["artist"]
             if "tags" in artist and "tag" in artist["tags"]:
-                df['artist_genre'][i[0]] = [tag["name"] for tag in artist["tags"]["tag"]]
-                i[0] += 1
+                df['artist_genre'][i] = [tag["name"] for tag in artist["tags"]["tag"]]
+                i += 1
                 return
         except:
-            df['artist_genre'][i[0]] = np.nan
-            i[0] += 1
+            df['artist_genre'][i] = np.nan
+            i += 1
             return
     else:
         print('Error 6: Failed request')
@@ -71,21 +71,20 @@ def get_artist_genre(artist_name, df):
 # Multiprocessing function
 def process_chunk(chunk):
     results = []
-    i = [0]
     for row in chunk.itertuples(index=False):
         time.sleep(3)
-        result = get_country(row.artist_latitude, row.artist_longitude, i)
+        result = get_country(row.artist_latitude, row.artist_longitude)
         if result is np.nan or None:
             results.append(np.nan)
-            i[0]+=1
+            i+=1
         else:
             results.append(result)
-            i[0]+=1
+            i+=1
     return results
 
 # Data augmentation functions
 def data_augmentation_location(df):
-    return df.apply(lambda row: get_country(row['artist_latitude'], row['artist_longitude'], i), axis=1)
+    return df.apply(lambda row: get_country(row['artist_latitude'], row['artist_longitude']), axis=1)
 
 def data_augmentation_genre(df):
     return df.apply(lambda row: get_artist_genre(row['artist_name']), axis=1)

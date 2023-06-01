@@ -20,7 +20,7 @@ csv_path = 'data/data.csv'
 csv_file = pd.read_csv(csv_path)
 copy_file = csv_file.copy()
 api_key = "059e637024c2da6d558a09dfa118a79a"
-global i = 0
+i = 0
 
 
 # *****************************************************************************
@@ -29,6 +29,7 @@ global i = 0
 
 # Get the country of an artist based on his Long and Lat coordinates
 def get_country(latitude, longitude, df):
+    global i
     if latitude is None or longitude is None or np.isnan(latitude) or np.isnan(longitude):
         df['artist_location'][i] = np.nan
         i += 1
@@ -43,6 +44,7 @@ def get_country(latitude, longitude, df):
 
 # Get the music genre of an artiste based on his name and by using Lastfm's API
 def get_artist_genre(artist_name, df):
+    global i
     base_url = "http://ws.audioscrobbler.com/2.0/"
     params = {
         "method": "artist.getinfo",
@@ -70,6 +72,7 @@ def get_artist_genre(artist_name, df):
 
 # Multiprocessing function
 def process_chunk(chunk):
+    global i
     results = []
     for row in chunk.itertuples(index=False):
         time.sleep(3)

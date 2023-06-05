@@ -66,6 +66,15 @@ object Query {
         val groupedGenre = uniqueGenreCount(data, columnName = "artist_terms")
 
         groupedGenre.show(10)
+
+        // question 2: what is the average BPM per music genre?
+        val listGenre = groupedGenre.select("term").collect().map(_.getString(0)).toList
+        val avgBPM = avgMetricbyGenre(data, "tempo", listGenre)
+        val avgBPMResults: Unit = printResults(avgBPM, "tempo")
+        // what is the average loudness per music genre?
+        val avgLoudness = avgMetricbyGenre(data, "loudness", listGenre)
+        val avgLoudnessResults: Unit = printResults(avgLoudness, "loudness")
+
     }
 
     def read_file(string: String): DataFrame = {
@@ -91,6 +100,39 @@ object Query {
         val termCounts = dfExploded.groupBy("term").agg(count("*").as("count")).orderBy(col("count").desc)
         val filteredTermCount = termCounts.withColumn("term", regexp_replace(col("term"), "[\\[\\]]", ""))
         return filteredTermCount
+    }
+
+    def groupByMean(data: DataFrame, columnName: String): DataFrame = {
+        // remove rows where columnName == 0 or Nan
+        val filteredData: DataFrame = data.filter(col(columnName).isNotNull && !isnan(col(columnName)) && col(columnName) =!= 0)
+        // sort the dataframe on columnName
+        val sortedData: DataFrame = filteredData.sort(col(columnName).asc)
+        // group the dataframe by "year"
+        val groupedData = sortedData.groupBy(columnName).mean().sort(col("mean").desc)
+        return groupedData
+    }
+
+    def avgMetricbyGenre(data: DataFrame, columnName: String, listGenre: List[String]): mutable.Map[String, Double] = {
+        val top10Genres = listGenre.take(10).distinct.map(_.trim).filter(_.nonEmpty).map(_.trim.toLowerCase)
+        val dfWithArrayGenre: DataFrame = data.withColumn("artist_terms_array", split(trim(col("artist_terms"), "[]"), ","))
+        val result = scala.collection.mutable.Map[String, Double]() // Mutable map to store results
+        // Filter the DataFrame based on the top 10 genres and calculate the average metric
+        for (term <- top10Genres) {
+            var count = 0
+            var metricTotal = 0.0
+            val rows = dfWithArrayGenre.collect()
+            rows.foreach { row =>
+                val terms = row.getAs[mutable.WrappedArray[String]]("artist_terms_array").map(_.trim.toLowerCase)
+                val metric = row.getAs[Double](columnName)
+                if (terms.contains(term)) {
+                    count += 1 // Increment count if the row contains the term
+                    metricTotal += metric
+                }
+            }
+            val avgMetric: Double = if (count > 0) metricTotal / count else 0.0 // Calculate the average metric by dividing the total by the count
+            result(term) = avgMetric
+        }
+        return result
     }
 
     def printResults(result: Map[String, Double], columnName: String): Unit = {

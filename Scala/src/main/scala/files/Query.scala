@@ -55,10 +55,17 @@ object Query {
     // Specify the path to your Parquet file
     val parquetFile = "./src/main/data/data.parquet"
 
-
     // Functions
     def main(args: Array[String]): Unit = {
+        val data: DataFrame = read_file(parquetFile)
+        // question 1: which year holds the highest number of produced tracks ?
+        val groupedYear = groupByCount(data,"year").filter(col("year") =!= 0)
+        // which country is home to the highest number of artists ?
+        val groupedLocation = groupByCount(data,"artist_location")
+        // which are the most popular music genre ?
+        val groupedGenre = uniqueGenreCount(data, columnName = "artist_terms")
 
+        groupedGenre.show(10)
     }
 
     def read_file(string: String): DataFrame = {
@@ -66,6 +73,31 @@ object Query {
         val data: DataFrame = Data.readParquetFile(parquetFile)
         // Get the unique values of the feature "year" and remove rows where year = 0
         return data
+    }
+
+    def groupByCount(data: DataFrame, columnName: String): DataFrame = {
+        // remove rows where columnName == 0
+        val filteredData: DataFrame = data.filter(col(columnName).isNotNull)
+        // sort the dataframe on columnName
+        val sortedData: DataFrame = filteredData.sort(col(columnName).asc)
+        // group the dataframe
+        val groupedData = sortedData.groupBy(columnName).count().sort(col("count").desc)
+        return groupedData
+    }
+
+    def uniqueGenreCount(data: DataFrame, columnName: String): DataFrame = {
+        val filteredData: DataFrame = data.filter(col(columnName).isNotNull)
+        val dfExploded = filteredData.select(explode(split(col(columnName), ",")).as("term")) // Split the string into an array using "|"
+        val termCounts = dfExploded.groupBy("term").agg(count("*").as("count")).orderBy(col("count").desc)
+        val filteredTermCount = termCounts.withColumn("term", regexp_replace(col("term"), "[\\[\\]]", ""))
+        return filteredTermCount
+    }
+
+    def printResults(result: Map[String, Double], columnName: String): Unit = {
+        result.toMap // Convert mutable map to immutable map and return
+        result.foreach { case (term, mean) =>
+            println(s"Music genre: $term", f" Average ${columnName}: {$mean}")
+        }
     }
 
     val timing = new StringBuffer

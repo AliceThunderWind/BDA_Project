@@ -67,3 +67,15 @@ Dans le cadre du projet, nous chercherons à répondre à 4 questions:
 - toutes les fonctions sont inscrites dans le main, donc juste à runner et elles se lancent toutes. Suffira simplement de faire un .show()
 - les données (csv et parquet) sont à ranger localement dans le fichier data prévu à cet effet 
 - pour la dataset complet, prévoir une implémentation d'un processus Distributed Computing, sinon ça va prendre 16h.... Apach Spark s'y prête bien mais pas sûr que cela fonctionne sur des tâches de type requête
+- le filtrage est bien plus restrictif sur la colonne artiste_terms, que la colonne "artiste_genre".. 
+
+### Algo
+Apache Spark MLlib
+- clustering :
+1) feature scaling en normalisant
+2) choix model de clustering (k-means...)  en tester plusieurs si besoin
+3) Entrainement
+4) Evaluation
+5) Post-processing des resultats
+6) Hyper parameter tuning, optimisation..
+- CNN on music sequence

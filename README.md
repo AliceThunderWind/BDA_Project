@@ -63,19 +63,50 @@ Dans le cadre du projet, nous chercherons à répondre à 4 questions:
 
 ### Remarques
 - le projet utilise SDK 11
-- le code le plus récent se trouve sur la branch script-test
+- le code le plus récent se trouve sur la branch main
 - toutes les fonctions sont inscrites dans le main, donc juste à runner et elles se lancent toutes. Suffira simplement de faire un .show()
 - les données (csv et parquet) sont à ranger localement dans le fichier data prévu à cet effet 
 - pour la dataset complet, prévoir une implémentation d'un processus Distributed Computing, sinon ça va prendre 16h.... Apach Spark s'y prête bien mais pas sûr que cela fonctionne sur des tâches de type requête
 - le filtrage est bien plus restrictif sur la colonne artiste_terms, que la colonne "artiste_genre".. 
 
-### Algo
-Apache Spark MLlib
-- clustering :
-1) feature scaling en normalisant
-2) choix model de clustering (k-means...)  en tester plusieurs si besoin
-3) Entrainement
-4) Evaluation
-5) Post-processing des resultats
-6) Hyper parameter tuning, optimisation..
-- CNN on music sequence
+### Modèles
+#### Apache Spark MLlib
+#### Question 3: RNN on genre prediciton (pour pallier au besoin de passer par l'API)
+- Preprocessing:
+``` 
+             tempo      loudness  time_signature      duration
+count  10000.000000  10000.000000    10000.000000  10000.000000
+mean     122.915449    -10.485668        3.564800    238.507518
+std       35.184412      5.399788        1.266239    114.137514
+min        0.000000    -51.643000        0.000000      1.044440
+25%       96.965750    -13.163250        3.000000    176.032200
+50%      120.161000     -9.380000        4.000000    223.059140
+75%      144.013250     -6.532500        4.000000    276.375060
+max      262.828000      0.566000        7.000000   1819.767710
+```
+```
+tempo               0
+loudness            0
+beats_start         0
+time_signature      0
+duration            0
+artist_genre      155
+```
+
+- remove music with too high or too low duration
+- remove music with time signature = 0
+- remove music with tempo = 0
+- check ranges of values for each feature
+- normaliser avec min/max scaling les features ou autre méthode
+- joindre graphe av/ap data transformation
+
+#### Approche:
+- Step 1: Load and prepare the data
+- Step 2: Split the data into training and testing sets
+- Step 3: Define the feature transformation and explain why use it on which feature (outliers...)
+- Step 4: Select a supervised learning algorithm (RNN)
+- Step 5: Train the model
+- Step 6: Make predictions
+- Step 7: Evaluate the model
+- Step 8: Fine-tune and iterate as needed
+

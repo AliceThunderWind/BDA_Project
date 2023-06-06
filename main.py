@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 from utils import *
-from hdf5_getters import *
 import pyarrow as pa
 import time
 import pyarrow.parquet as pq
@@ -9,14 +8,16 @@ from geopy.geocoders import Nominatim
 import requests
 import multiprocessing
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
+pd.set_option('display.max_columns', None)  # Display all columns
 
 # *****************************************************************************
 #                  GLOBAL VARIABLES
 # *****************************************************************************
 
-files = get_all_files('data', ext='.h5')
-csv_path = 'data/data.csv'
+#files = get_all_files('data', ext='.h5')
+csv_path = 'data_augmented.csv'
 csv_file = pd.read_csv(csv_path)
 copy_file = csv_file.copy()
 api_key = "059e637024c2da6d558a09dfa118a79a"
@@ -91,6 +92,8 @@ def data_augmentation_location(df):
 
 def data_augmentation_genre(df):
     return df.apply(lambda row: get_artist_genre(row['artist_name']), axis=1)
+
+
 
 
 # *****************************************************************************
@@ -177,3 +180,23 @@ def data_augmentation_genre(df):
 #     # Close the pool of worker processes
 #     pool.close()
 #     pool.join()
+
+
+# RNN model section: data analysis / transformation
+filtered_df = copy_file[['tempo', 'loudness', 'beats_start', 'time_signature', 'duration', 'artist_genre']]
+print(filtered_df.describe())
+
+null_counts = filtered_df.isna().sum()
+print(null_counts)
+
+# - remove music with time signature = 0
+# - remove music with tempo = 0
+# - check ranges of values for each feature
+duration = filtered_df['tempo'].unique()
+plt.hist(duration, bins=10, edgecolor='black')
+plt.xlabel('Values')
+plt.ylabel('Frequency')
+plt.title('Histogram')
+plt.show()
+# - remove tracks with no artist_genre
+

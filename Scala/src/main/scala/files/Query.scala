@@ -2,12 +2,12 @@ package files
 
 import org.apache.spark.ml.clustering.KMeans
 import org.apache.spark.ml.evaluation.ClusteringEvaluator
-import org.apache.spark.ml.feature.{StandardScaler, VectorAssembler}
-import org.apache.spark.ml.linalg.Vectors
+import org.apache.spark.ml.feature.{Normalizer, StandardScaler, VectorAssembler}
+import org.apache.spark.ml.linalg.{Vectors, Vector}
 
 //import org.apache.commons.lang.mutable.Mutable
 import org.apache.spark.SparkContext
-import org.apache.spark.sql.{ColumnName, DataFrame, SparkSession}
+import org.apache.spark.sql.{ColumnName, DataFrame, SparkSession, Row}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.functions.{col, regexp_replace}
 import org.apache.spark.sql.functions.array_contains
@@ -119,33 +119,61 @@ object Query {
                     .setInputCols(Array("artist_latitude")) //, "artist_longitude", "avgSongDuration", "avgSongLoudness", "avgTempo", "avgLoudness", "avgEnergy"))
                     .setOutputCol("features")
 
-        val assembledData = assembler.transform(artistData).select("features")
-
-        // Création d'un DataFrame avec une colonne "features" de type Vector
-        val vectorData = assembledData.withColumn("features", assembledData("features").as("features").cast("vector"))
+        val assembledData = assembler.transform(artistData)
 
         val scaler = new StandardScaler()
-        .setInputCol("features")
-        .setOutputCol("scaledFeatures")
-        .setWithMean(true)
-        .setWithStd(true)
+            .setInputCol("features")
+            .setOutputCol("scaledFeatures")
+            .setWithMean(true)
+            .setWithStd(true)
 
-        println("ok jusqu'ici")
+        val scaledData = scaler.fit(assembledData).transform(assembledData)
 
-        val scaledData = scaler.fit(vectorData).transform(vectorData)
-        println("ok jusqu'là")
         // puis on veut faire du clustering sur ces colonnes
 
+        /*
         val kmeans = new KMeans().setK(10)
 
         val predictions = kmeans.fit(scaledData).transform(scaledData)
         // puis on veut évaluer la qualité du clustering
 
+        predictions.show(10)
+
         val evaluator = new ClusteringEvaluator()
 
         val silhouette = evaluator.evaluate(predictions)
         println(s"Silhouette with squared euclidean distance = $silhouette")
+        */
 
+        // Normalisation des vecteurs de caractéristiques
+
+        val normalizer = new Normalizer()
+        .setInputCol("features")
+        .setOutputCol("normalizedFeatures")
+        .setP(2.0)
+
+        val normalizedData = normalizer.transform(assembledData)
+
+        // Sélection des vecteurs normalisés
+        val vectors = normalizedData.select("artist_id", "normalizedFeatures")
+        .rdd
+        .map { case row => (row.getAs[Int]("artist_id"), row.getAs[Vector]("normalizedFeatures")) }
+
+        // Calcul de la similarité du cosinus
+        def cosineSimilarity(v1: Vector, v2: Vector): Double = {
+            val dotProduct = v1.dot(v2)
+            val magnitude = Vectors.norm(v1,2) * Vectors.norm(v2,2)
+            dotProduct / magnitude
+        }
+
+        val similarities = vectors.cartesian(vectors)
+                .map { case ((id1, vector1), (id2, vector2)) =>
+                    (id1, id2, cosineSimilarity(vector1, vector2))
+                }
+
+        // Affichage des similarités
+        val df = spark.createDataFrame(similarities)
+        df.show(10)
     }
 
     def create_artist_dataframe(data: DataFrame): DataFrame = {
@@ -165,7 +193,7 @@ object Query {
             avg("loudness").as("avgLoudness"),
             avg("energy").as("avgEnergy")
         )
-        return artist_infos
+        return artist_infos.na.drop()
     }
 
     def read_file(string: String): DataFrame = {

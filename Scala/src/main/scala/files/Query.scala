@@ -1,6 +1,11 @@
 package files
 
-import org.apache.commons.lang.mutable.Mutable
+import org.apache.spark.ml.clustering.KMeans
+import org.apache.spark.ml.evaluation.ClusteringEvaluator
+import org.apache.spark.ml.feature.{StandardScaler, VectorAssembler}
+import org.apache.spark.ml.linalg.Vectors
+
+//import org.apache.commons.lang.mutable.Mutable
 import org.apache.spark.SparkContext
 import org.apache.spark.sql.{ColumnName, DataFrame, SparkSession}
 import org.apache.spark.sql.functions._
@@ -11,8 +16,9 @@ import scala.collection.mutable.ArraySeq
 import scala.collection.mutable.Map
 import java.time.Instant
 import scala.collection.mutable
+import breeze.numerics.I
 
-case class PaintEvent(
+case class SongData(
                        timestamp: Instant,
                        artist_id: Types.artist_id,
                        artist_name: Types.artist_name,
@@ -22,7 +28,7 @@ case class PaintEvent(
                        song_id: Types.song_id,
                        title: Types.title,
                        song_hotness: Types.song_hotness,
-                       similar_artists: Types.similar_artists,
+                       similar_artists: Types.similar_artists, // à utliser pour évaluer clustering des artistes
                        artist_terms: Types.artist_terms,
                        artist_terms_freq: Types.artist_terms_freq,
                        artist_terms_weight: Types.artist_terms_weight,
@@ -41,6 +47,23 @@ case class PaintEvent(
                        year : Types.year
                      )
 
+case class ArtistData(
+    artist_id: Types.artist_id,
+    artist_name: Types.artist_name,
+    artist_location: Types.artist_location,
+    artist_latitude: Types.artist_latitude,
+    artist_longitude: Types.artist_longitude,
+    nbSong : Int,
+    avgSongDuration: Float, //ou autre type
+    avgSongLoudness: Float,
+    avgTempo: Float,
+    yearFirstSong: Types.year,
+    yearLastSong: Types.year,
+    avgLoudness: Float,
+    avgEnergy: Float
+    // ajouter d'autres colonnes ?
+)
+
 object Query {
 
     val spark: SparkSession = SparkSession.builder
@@ -58,6 +81,8 @@ object Query {
     // Functions
     def main(args: Array[String]): Unit = {
         val data: DataFrame = read_file(parquetFile)
+
+        /*
         // question 1: which year holds the highest number of produced tracks ?
         val groupedYear = groupByCount(data,"year").filter(col("year") =!= 0)
         // which country is home to the highest number of artists ?
@@ -74,7 +99,73 @@ object Query {
         // what is the average loudness per music genre?
         val avgLoudness = avgMetricbyGenre(data, "loudness", listGenre)
         val avgLoudnessResults: Unit = printResults(avgLoudness, "loudness")
+        */
 
+        // question 3 : TODO
+
+        // question 4:
+        // Dans une optique de recommandation d'un artiste à un utilisateur,
+        // comment pourrait-on mesurer la similarité entre artistes ? -> Machne learning
+
+        // décrire chaque artiste par une liste de caractéristiques
+        // faire du clustering pour essayer de regrouper les artistes similaires
+        // utiliser algorithmes de clustering disponible dans scala mllib
+
+        val artistData = create_artist_dataframe(data)
+        //artistData.show(10)
+
+        // à partir de artistData, on veut filtrer les colonnes pour ne récupérer que celles qui contiennent des float
+        val assembler = new VectorAssembler()
+                    .setInputCols(Array("artist_latitude")) //, "artist_longitude", "avgSongDuration", "avgSongLoudness", "avgTempo", "avgLoudness", "avgEnergy"))
+                    .setOutputCol("features")
+
+        val assembledData = assembler.transform(artistData).select("features")
+
+        // Création d'un DataFrame avec une colonne "features" de type Vector
+        val vectorData = assembledData.withColumn("features", assembledData("features").as("features").cast("vector"))
+
+        val scaler = new StandardScaler()
+        .setInputCol("features")
+        .setOutputCol("scaledFeatures")
+        .setWithMean(true)
+        .setWithStd(true)
+
+        println("ok jusqu'ici")
+
+        val scaledData = scaler.fit(vectorData).transform(vectorData)
+        println("ok jusqu'là")
+        // puis on veut faire du clustering sur ces colonnes
+
+        val kmeans = new KMeans().setK(10)
+
+        val predictions = kmeans.fit(scaledData).transform(scaledData)
+        // puis on veut évaluer la qualité du clustering
+
+        val evaluator = new ClusteringEvaluator()
+
+        val silhouette = evaluator.evaluate(predictions)
+        println(s"Silhouette with squared euclidean distance = $silhouette")
+
+    }
+
+    def create_artist_dataframe(data: DataFrame): DataFrame = {
+        val artistData = data.select("artist_id", "artist_name", "artist_location", "artist_latitude", "artist_longitude", "duration", "energy", "loudness", "tempo", "year")
+        val groupedArtist = artistData.groupBy("artist_id")
+        val artist_infos = groupedArtist.agg(
+            first("artist_name").as("artist_name"),
+            first("artist_location").as("artist_location"),
+            first("artist_latitude").as("artist_latitude"),
+            first("artist_longitude").as("artist_longitude"),
+            count("artist_id").as("nbSong"),
+            avg("duration").as("avgSongDuration"),
+            avg("loudness").as("avgSongLoudness"),
+            avg("tempo").as("avgTempo"),
+            min("year").as("yearFirstSong"),
+            max("year").as("yearLastSong"),
+            avg("loudness").as("avgLoudness"),
+            avg("energy").as("avgEnergy")
+        )
+        return artist_infos
     }
 
     def read_file(string: String): DataFrame = {

@@ -114,6 +114,12 @@ object Query {
         val artistData = create_artist_dataframe(data)
         //artistData.show(10)
 
+        val test = get_similar_artists(data)
+
+        //test.dtypes.foreach(println)
+        test.show(10)
+
+
         // à partir de artistData, on veut filtrer les colonnes pour ne récupérer que celles qui contiennent des float
         val assembler = new VectorAssembler()
                     .setInputCols(Array("artist_latitude")) //, "artist_longitude", "avgSongDuration", "avgSongLoudness", "avgTempo", "avgLoudness", "avgEnergy"))
@@ -131,22 +137,62 @@ object Query {
 
         // puis on veut faire du clustering sur ces colonnes
 
-        /*
-        val kmeans = new KMeans().setK(10)
+        val kmeans = new KMeans().setK(40)
 
         val predictions = kmeans.fit(scaledData).transform(scaledData)
-        // puis on veut évaluer la qualité du clustering
-
         predictions.show(10)
 
+        val clusters = predictions.select("prediction", "artist_id").groupBy("prediction").agg(collect_list("artist_id").as("artist_ids"))
+        //clusters.show(10, false)
+
+        // compute avg number of artists per cluster
+        val avgArtistsPerCluster = clusters.select(avg(size(col("artist_ids")))).first().getDouble(0)
+        println("avgArtistsPerCluster: " + avgArtistsPerCluster)
+
+        // puis on veut évaluer la qualité du clustering
         val evaluator = new ClusteringEvaluator()
 
         val silhouette = evaluator.evaluate(predictions)
         println(s"Silhouette with squared euclidean distance = $silhouette")
-        */
+
+
+        // créer pred et test :
+        val joinedDF = clusters.join(predictions.select("artist_id","prediction"), Seq("prediction"))
+
+        val removeIdFromSimilar = udf((artist_ids: Seq[String], artist_id: String) => {
+            artist_ids.filterNot(_ == artist_id)
+        })
+
+        val pred = joinedDF.withColumn("similar", removeIdFromSimilar(col("artist_ids"), col("artist_id"))).select("artist_id", "similar")
+
+        pred.show(10)
+
+        // pour chaque artiste de similar, on regarde on regarde dans quel cluster il se trouve,
+        // on récupre les artistes qui se trouvent dans le même cluster,
+        // et on regarde le nombre d'artistes qui sont dans la liste des artistes similaires et qui sont aussi dans le même cluster
+        // on fait ça pour chaque artiste de similar et on calcule le pourcentage d'artistes similaires trouvés
+        // on fait la moyenne de ces pourcentages pour avoir un pourcentage moyen
+        // pour savoir si notre prédiction de la similarité est correct
+
+        val joinedDF2 = test.join(pred, Seq("artist_id"))
+
+        val calculatePercentage = udf((similarTest: Seq[String], similarPred: Seq[String]) => {
+            val commonIds = similarTest.intersect(similarPred).distinct
+            val percentage = (commonIds.length.toDouble / similarTest.length) * 100
+            percentage
+        })
+
+        val resultDF = joinedDF2.withColumn("pourcentage", calculatePercentage(col("similar_artists"), col("similar")))
+
+        resultDF.show(10)
+
+        resultDF.select(avg(col("pourcentage"))).show()
+        resultDF.select(max(col("pourcentage"))).show()
+
+        // */
 
         // Normalisation des vecteurs de caractéristiques
-
+        /*
         val normalizer = new Normalizer()
         .setInputCol("features")
         .setOutputCol("normalizedFeatures")
@@ -174,6 +220,7 @@ object Query {
         // Affichage des similarités
         val df = spark.createDataFrame(similarities)
         df.show(10)
+        // */
     }
 
     def create_artist_dataframe(data: DataFrame): DataFrame = {
@@ -194,6 +241,14 @@ object Query {
             avg("energy").as("avgEnergy")
         )
         return artist_infos.na.drop()
+    }
+
+    def get_similar_artists(data: DataFrame): DataFrame = {
+        val df = data.select("artist_id", "similar_artists").groupBy("artist_id").agg(first("similar_artists").as("similar_artists"))
+        val parseStringList = spark.udf.register("parseStringList", (chaine: String) => {
+            chaine.drop(1).dropRight(1).split(",").toList.map(_.drop(1).dropRight(1))
+        })
+        return df.withColumn("similar_artists", parseStringList(df("similar_artists")))
     }
 
     def read_file(string: String): DataFrame = {

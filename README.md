@@ -102,6 +102,7 @@ artist_genre      155
 
 #### Approche:
 - Step 1: Load and prepare the data
+    - prendre comme réponse Y les genres avec la plus grande densité (rock, pop...). Cela permettra au modèle de mieux généraliser en réduisant la dimensionnalité
 - Step 2: Split the data into training and testing sets
 - Step 3: Define the feature transformation and explain why use it on which feature (outliers...)
     - tempo: normal shaped distrbiution, no outliers => min/max scaling (sensitive to outliers)

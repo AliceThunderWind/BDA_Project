@@ -114,4 +114,10 @@ artist_genre      155
 - Step 6: Make predictions
 - Step 7: Evaluate the model
 - Step 8: Fine-tune and iterate as needed
+    -  maxDepth: It determines the maximum depth of the decision tree. Increasing maxDepth can allow the model to capture more complex relationships in the data, but it may also lead to overfitting. Try increasing or decreasing the value to find the optimal depth for your dataset.
 
+    - maxBins: It sets the maximum number of bins used for discretizing continuous features. A larger value allows the model to consider more split points, but it also increases computational complexity. You can try increasing the value to capture more information from continuous features.
+
+    - impurity: It specifies the impurity measure used for decision tree splitting. The default impurity measure is "gini," but you can also try using "entropy" to see if it improves the accuracy.
+
+    - minInstancesPerNode: It sets the minimum number of instances required to form a leaf node. Increasing this value can prevent the model from creating small leaf nodes that might overfit the training data.

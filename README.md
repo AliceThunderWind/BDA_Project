@@ -104,6 +104,10 @@ artist_genre      155
 - Step 1: Load and prepare the data
 - Step 2: Split the data into training and testing sets
 - Step 3: Define the feature transformation and explain why use it on which feature (outliers...)
+    - tempo: normal shaped distrbiution, no outliers => min/max scaling (sensitive to outliers)
+    - loudness : negatively skewed, add constant = 100 to have normal distribution, no outliers, min/max scaling
+    - time_signature : nothing, no outliers,, form of one-hot encoding
+    - duration : positively skewed, no outliers, min_max rescale
 - Step 4: Select a supervised learning algorithm (RNN)
 - Step 5: Train the model
 - Step 6: Make predictions

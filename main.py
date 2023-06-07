@@ -184,15 +184,13 @@ def data_augmentation_genre(df):
 
 # RNN model section: data analysis / transformation
 filtered_df = copy_file[['tempo', 'loudness', 'beats_start', 'time_signature', 'duration', 'artist_genre']]
-print(filtered_df.describe())
 
 null_counts = filtered_df.isna().sum()
-print(null_counts)
 
 # - remove music with time signature = 0
 # - remove music with tempo = 0
 # - check ranges of values for each feature
-duration = filtered_df['tempo'].unique()
+duration = filtered_df['duration'].unique()
 plt.hist(duration, bins=10, edgecolor='black')
 plt.xlabel('Values')
 plt.ylabel('Frequency')

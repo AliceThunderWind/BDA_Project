@@ -7,6 +7,14 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.functions.{col, regexp_replace}
 import org.apache.spark.sql.functions.array_contains
 import scala.collection.mutable.ArraySeq
+import org.apache.spark.ml.clustering.KMeans
+import org.apache.spark.ml.feature.VectorAssembler
+import org.apache.spark.ml.evaluation.ClusteringEvaluator
+import org.apache.spark.ml.feature.MinMaxScaler
+import org.apache.spark.ml.feature.MinMaxScalerModel
+import org.apache.spark.ml.feature.StandardScaler
+import org.apache.spark.ml.linalg.Vector
+import scala.collection.mutable.ArrayBuffer
 
 import scala.collection.mutable.Map
 import java.time.Instant
@@ -64,7 +72,7 @@ object Query {
         val groupedLocation = groupByCount(data,"artist_location")
         // which are the most popular music genre ?
         val groupedGenre = uniqueGenreCount(data, columnName = "artist_terms")
-
+        println(groupedGenre.count)
         groupedGenre.show(10)
 
         // question 2: what is the average BPM per music genre?
@@ -75,6 +83,109 @@ object Query {
         val avgLoudness = avgMetricbyGenre(data, "loudness", listGenre)
         val avgLoudnessResults: Unit = printResults(avgLoudness, "loudness")
 
+        // question 3: how to predict the music genre from features like dB, tempo, scale etc.
+        // Select meaningful columns for the clustering
+        val features_for_kmeans = Array("duration", "key", "loudness", "tempo", "time_signature")
+        val scaledData = preprocess_data(data, features_for_kmeans)
+        val dataset = data.select(features_for_kmeans.head, features_for_kmeans.tail: _*)
+
+        // Find the best silhouettes
+        val silhouettes = get_silhouettes(scaledData, 2, 10)
+        println(s"Silhouettes with squared euclidean distance :")
+        println(silhouettes.mkString(", "))
+
+        // Trains a k-means model.
+        val nClusters = 6
+        val predictions = kmeans_predict_show(scaledData, nClusters, features_for_kmeans)
+
+        // Print the song of a playlist
+        val features_to_show = Array("artist_name", "title", "duration", "tempo", "artist_genre")
+        show_predicted_musics(data, predictions, 0, 10, features_to_show)
+        show_predicted_musics(data, predictions, 5, 10, features_to_show)
+    }
+
+    private def preprocess_data(data: DataFrame, columns: Array[String]): DataFrame = {
+        // Select meaningful columns for the clustering
+        val my_features = Array("duration", "key", "loudness", "tempo", "time_signature")
+        val dataset = data.select(my_features.head, my_features.tail: _*)
+
+        // Define the assembler
+        val assembler = new VectorAssembler()
+          .setInputCols(my_features)
+          .setOutputCol("features")
+
+        // Transform the DataFrame using the VectorAssembler
+        val assembledData = assembler.transform(dataset)
+
+        // Create a StandardScaler instance
+        val scaler = new StandardScaler()
+          .setInputCol("features")
+          .setOutputCol("scaledFeatures")
+          .setWithMean(true) // Optionally remove the mean from the feature vector
+          .setWithStd(true) // Optionally scale the features to unit standard deviation
+
+        // Compute summary statistics and generate the scaler model
+        val scalerModel = scaler.fit(assembledData)
+
+        // Transform the DataFrame to apply scaling
+        val scaledData: DataFrame = scalerModel.transform(assembledData)
+        return scaledData
+    }
+    private def kmeans_prediction(data: DataFrame, nClusters: Int): DataFrame = {
+        // Trains a k-means model.
+        val kmeans = new KMeans().setK(nClusters)
+          .setFeaturesCol("scaledFeatures")
+          .setSeed(1L)
+        val model = kmeans.fit(data)
+
+        // Make predictions
+        val predictions = model.transform(data)
+        return predictions
+    }
+
+    private def kmeans_predict_show(data: DataFrame, nClusters: Int, features_for_kmeans: Array[String]): DataFrame = {
+        // Trains a k-means model.
+        val kmeans = new KMeans().setK(nClusters)
+          .setFeaturesCol("scaledFeatures")
+          .setSeed(1L)
+        val model = kmeans.fit(data)
+
+        // Make predictions
+        val predictions = model.transform(data)
+
+        // Shows the result.
+        println("Cluster Centers: ")
+        println(features_for_kmeans.mkString(", "))
+        model.clusterCenters.foreach(println)
+        return predictions
+    }
+
+    private def get_silhouettes(data: DataFrame, minClusters: Int, maxClusters: Int): ArrayBuffer[Double]  = {
+        // Loop and store results
+        val silhouettes = ArrayBuffer[Double]() // Mutable collection to store results
+
+        for (nClusters <- minClusters to maxClusters) {
+            val predictions = kmeans_prediction(data, nClusters) // Call the function with the current value
+            // Evaluate clustering by computing Silhouette score
+            val evaluator = new ClusteringEvaluator()
+
+            val silhouette = evaluator.evaluate(predictions)
+            silhouettes += silhouette // Store the result in the collection
+        }
+        return silhouettes
+    }
+
+    private def show_predicted_musics(data: DataFrame, predictions: DataFrame, cluster_id: Int, musics_to_show: Int, features_to_print: Array[String]) = {
+        // Add row index to data
+        val dataWithIndex = data.withColumn("index", monotonically_increasing_id())
+        // Add row index to predictions
+        val predictionCol = predictions.select("prediction")
+        val predictionsWithIndex = predictionCol.withColumn("index", monotonically_increasing_id())
+        val filteredSongsDF = dataWithIndex.join(predictionsWithIndex, Seq("index"))
+          .filter(col("prediction") === cluster_id)
+        val filteredSongsFeatures = filteredSongsDF.select(features_to_print.head, features_to_print.tail: _*)
+        println(s"First $musics_to_show musics of cluster $cluster_id :")
+        filteredSongsFeatures.show(musics_to_show, false)
     }
 
     def read_file(string: String): DataFrame = {
@@ -150,4 +261,6 @@ object Query {
         timing.append(s"Processing $label took ${stop - start} ms.\n")
         result
     }
+
+
 }

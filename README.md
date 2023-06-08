@@ -41,8 +41,8 @@ En phase de développement, nous commencerons par utiliser un sous-ensemble de 1
 
 ### Questions
 Dans le cadre du projet, nous chercherons à répondre à 4 questions: 
-- quels sont les genres les plus populaires? quelle est l'année qui comptabilise le plus de chansons produites? quel pays détient le plus grand nombre d'artiste?
-- quel est le niveau sonore moyen et le BPM moyen (battement par minute) par genre musical ?
+- Quels sont les genres les plus populaires? Quelle est l'année qui comptabilise le plus de chansons produites? Quel pays détient le plus grand nombre d'artiste?
+- Quel est le niveau sonore moyen et le BPM moyen (battement par minute) par genre musical ?
 - Comment prédire le genre musical d'une musique à partir des caractéristiques d'autres musiques (niveau sonore, tempo, gamme..) -> Machine learning
 - Dans une optique de recommandation d'un artiste à un utilisateur, comment pourrait-on mesurer la similarité entre artistes ? -> Machne learning
 
@@ -121,3 +121,36 @@ artist_genre      155
     - impurity: It specifies the impurity measure used for decision tree splitting. The default impurity measure is "gini," but you can also try using "entropy" to see if it improves the accuracy.
 
     - minInstancesPerNode: It sets the minimum number of instances required to form a leaf node. Increasing this value can prevent the model from creating small leaf nodes that might overfit the training data.
+
+### Results
+
+**Question 1**
+
+- Quels sont les genres les plus populaires ?
+
+![test](./img/results_q1_part3.png)
+
+- Quel pays détient le plus grand nombre d'artiste ?
+
+![test](./img/results_q1_part1.png)
+
+- Quelle est l'année qui comptabilise le plus de chansons produites ?
+
+![test](./img/results_q1_part2.png)
+
+
+**Question 2**
+
+// TODO
+
+**Question 3**
+
+// TODO
+
+**Question 4**
+
+// TODO
+
+### Possible future enhancements
+
+// TODO

@@ -137,7 +137,7 @@ object Query {
 
         // puis on veut faire du clustering sur ces colonnes
 
-        val kmeans = new KMeans().setK(40)
+        val kmeans = new KMeans().setK(10)
 
         val predictions = kmeans.fit(scaledData).transform(scaledData)
         predictions.show(10)

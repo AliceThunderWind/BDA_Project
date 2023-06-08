@@ -119,10 +119,9 @@ object Query {
         //test.dtypes.foreach(println)
         test.show(10)
 
-
         // à partir de artistData, on veut filtrer les colonnes pour ne récupérer que celles qui contiennent des float
         val assembler = new VectorAssembler()
-                    .setInputCols(Array("artist_latitude")) //, "artist_longitude", "avgSongDuration", "avgSongLoudness", "avgTempo", "avgLoudness", "avgEnergy"))
+                    .setInputCols(Array("avgSongDuration", "avgSongLoudness", "avgTempo", "avgLoudness", "avgEnergy"))
                     .setOutputCol("features")
 
         val assembledData = assembler.transform(artistData)
@@ -137,13 +136,15 @@ object Query {
 
         // puis on veut faire du clustering sur ces colonnes
 
-        val kmeans = new KMeans().setK(10)
+        val kmeans = new KMeans().setK(50)
 
         val predictions = kmeans.fit(scaledData).transform(scaledData)
         predictions.show(10)
 
         val clusters = predictions.select("prediction", "artist_id").groupBy("prediction").agg(collect_list("artist_id").as("artist_ids"))
-        //clusters.show(10, false)
+        val names = predictions.select("prediction", "artist_name").groupBy("prediction").agg(collect_list("artist_name").as("similar_artists"))
+        val names2 = names.join(predictions.select("artist_name","prediction"), Seq("prediction"))
+        names2.select("artist_name","similar_artists").show(10, false)
 
         // compute avg number of artists per cluster
         val avgArtistsPerCluster = clusters.select(avg(size(col("artist_ids")))).first().getDouble(0)
@@ -155,8 +156,7 @@ object Query {
         val silhouette = evaluator.evaluate(predictions)
         println(s"Silhouette with squared euclidean distance = $silhouette")
 
-
-        // créer pred et test :
+        // créer pred :
         val joinedDF = clusters.join(predictions.select("artist_id","prediction"), Seq("prediction"))
 
         val removeIdFromSimilar = udf((artist_ids: Seq[String], artist_id: String) => {
@@ -164,15 +164,6 @@ object Query {
         })
 
         val pred = joinedDF.withColumn("similar", removeIdFromSimilar(col("artist_ids"), col("artist_id"))).select("artist_id", "similar")
-
-        pred.show(10)
-
-        // pour chaque artiste de similar, on regarde on regarde dans quel cluster il se trouve,
-        // on récupre les artistes qui se trouvent dans le même cluster,
-        // et on regarde le nombre d'artistes qui sont dans la liste des artistes similaires et qui sont aussi dans le même cluster
-        // on fait ça pour chaque artiste de similar et on calcule le pourcentage d'artistes similaires trouvés
-        // on fait la moyenne de ces pourcentages pour avoir un pourcentage moyen
-        // pour savoir si notre prédiction de la similarité est correct
 
         val joinedDF2 = test.join(pred, Seq("artist_id"))
 
@@ -228,9 +219,9 @@ object Query {
         val groupedArtist = artistData.groupBy("artist_id")
         val artist_infos = groupedArtist.agg(
             first("artist_name").as("artist_name"),
-            first("artist_location").as("artist_location"),
-            first("artist_latitude").as("artist_latitude"),
-            first("artist_longitude").as("artist_longitude"),
+        //    first("artist_location").as("artist_location"),
+        //    first("artist_latitude").as("artist_latitude"),
+        //    first("artist_longitude").as("artist_longitude"),
             count("artist_id").as("nbSong"),
             avg("duration").as("avgSongDuration"),
             avg("loudness").as("avgSongLoudness"),

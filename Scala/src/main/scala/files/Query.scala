@@ -81,7 +81,6 @@ object Query {
     // Functions
     def main(args: Array[String]): Unit = {
         val data: DataFrame = read_file(parquetFile)
-
         /*
         // question 1: which year holds the highest number of produced tracks ?
         val groupedYear = groupByCount(data,"year").filter(col("year") =!= 0)
@@ -99,32 +98,34 @@ object Query {
         // what is the average loudness per music genre?
         val avgLoudness = avgMetricbyGenre(data, "loudness", listGenre)
         val avgLoudnessResults: Unit = printResults(avgLoudness, "loudness")
-        */
-
-        // question 3 : TODO
 
         // question 4:
         // Dans une optique de recommandation d'un artiste à un utilisateur,
-        // comment pourrait-on mesurer la similarité entre artistes ? -> Machne learning
+        // comment pourrait-on mesurer la similarité entre artistes ?
+        */
+        question4(data)
+    }
 
-        // décrire chaque artiste par une liste de caractéristiques
-        // faire du clustering pour essayer de regrouper les artistes similaires
-        // utiliser algorithmes de clustering disponible dans scala mllib
-
+    def question4(data: DataFrame): Unit = {
         val artistData = create_artist_dataframe(data)
-        //artistData.show(10)
 
         val test = get_similar_artists(data)
+        val scaledData = preprocessData(artistData)
+        val predictions = performKMeans(scaledData, 10)
+        evaluateCluster(predictions, test, true)
 
-        //test.dtypes.foreach(println)
-        test.show(10)
+        val ks = Array(5, 10, 20, 50, 100)
+        val metrics = ks.map(k => (k, evaluateCluster(performKMeans(scaledData, k), test, false)))
+        println(metrics.mkString("\n"))
+    }
 
+    def preprocessData(data: DataFrame): DataFrame = {
         // à partir de artistData, on veut filtrer les colonnes pour ne récupérer que celles qui contiennent des float
         val assembler = new VectorAssembler()
                     .setInputCols(Array("avgSongDuration", "avgSongLoudness", "avgTempo", "avgLoudness", "avgEnergy"))
                     .setOutputCol("features")
 
-        val assembledData = assembler.transform(artistData)
+        val assembledData = assembler.transform(data)
 
         val scaler = new StandardScaler()
             .setInputCol("features")
@@ -132,37 +133,29 @@ object Query {
             .setWithMean(true)
             .setWithStd(true)
 
-        val scaledData = scaler.fit(assembledData).transform(assembledData)
+        scaler.fit(assembledData).transform(assembledData)
+    }
 
-        // puis on veut faire du clustering sur ces colonnes
+    def performKMeans(data: DataFrame, k: Int): DataFrame = {
+        val kmeans = new KMeans().setK(k)
 
-        val kmeans = new KMeans().setK(50)
+        val predictions = kmeans.fit(data).transform(data)
+        predictions
+    }
 
-        val predictions = kmeans.fit(scaledData).transform(scaledData)
-        predictions.show(10)
-
+    def evaluateCluster(predictions: DataFrame, test: DataFrame, verbose:Boolean): Tuple4[Double, Double, Double, Double] = {
         val clusters = predictions.select("prediction", "artist_id").groupBy("prediction").agg(collect_list("artist_id").as("artist_ids"))
-        val names = predictions.select("prediction", "artist_name").groupBy("prediction").agg(collect_list("artist_name").as("similar_artists"))
-        val names2 = names.join(predictions.select("artist_name","prediction"), Seq("prediction"))
-        names2.select("artist_name","similar_artists").show(10, false)
-
-        // compute avg number of artists per cluster
         val avgArtistsPerCluster = clusters.select(avg(size(col("artist_ids")))).first().getDouble(0)
-        println("avgArtistsPerCluster: " + avgArtistsPerCluster)
+        if (verbose) println("avgArtistsPerCluster: " + avgArtistsPerCluster)
 
-        // puis on veut évaluer la qualité du clustering
         val evaluator = new ClusteringEvaluator()
-
         val silhouette = evaluator.evaluate(predictions)
-        println(s"Silhouette with squared euclidean distance = $silhouette")
+        if (verbose) println("Silhouette with squared euclidean distance = " + silhouette)
 
-        // créer pred :
         val joinedDF = clusters.join(predictions.select("artist_id","prediction"), Seq("prediction"))
-
         val removeIdFromSimilar = udf((artist_ids: Seq[String], artist_id: String) => {
             artist_ids.filterNot(_ == artist_id)
         })
-
         val pred = joinedDF.withColumn("similar", removeIdFromSimilar(col("artist_ids"), col("artist_id"))).select("artist_id", "similar")
 
         val joinedDF2 = test.join(pred, Seq("artist_id"))
@@ -174,44 +167,18 @@ object Query {
         })
 
         val resultDF = joinedDF2.withColumn("pourcentage", calculatePercentage(col("similar_artists"), col("similar")))
-
-        resultDF.show(10)
-
-        resultDF.select(avg(col("pourcentage"))).show()
-        resultDF.select(max(col("pourcentage"))).show()
-
-        // */
-
-        // Normalisation des vecteurs de caractéristiques
-        /*
-        val normalizer = new Normalizer()
-        .setInputCol("features")
-        .setOutputCol("normalizedFeatures")
-        .setP(2.0)
-
-        val normalizedData = normalizer.transform(assembledData)
-
-        // Sélection des vecteurs normalisés
-        val vectors = normalizedData.select("artist_id", "normalizedFeatures")
-        .rdd
-        .map { case row => (row.getAs[Int]("artist_id"), row.getAs[Vector]("normalizedFeatures")) }
-
-        // Calcul de la similarité du cosinus
-        def cosineSimilarity(v1: Vector, v2: Vector): Double = {
-            val dotProduct = v1.dot(v2)
-            val magnitude = Vectors.norm(v1,2) * Vectors.norm(v2,2)
-            dotProduct / magnitude
+        val avgPercent = resultDF.select(avg(col("pourcentage"))).first().getDouble(0)
+        val maxPercent = resultDF.select(max(col("pourcentage"))).first().getDouble(0)
+        if (verbose) {
+            println(s"avg accuracy: $avgPercent, max accuracy: $maxPercent")
         }
+        Tuple4(avgArtistsPerCluster, silhouette, avgPercent, maxPercent)
+    }
 
-        val similarities = vectors.cartesian(vectors)
-                .map { case ((id1, vector1), (id2, vector2)) =>
-                    (id1, id2, cosineSimilarity(vector1, vector2))
-                }
-
-        // Affichage des similarités
-        val df = spark.createDataFrame(similarities)
-        df.show(10)
-        // */
+    def printNames(predictions: DataFrame): Unit = {
+        val names = predictions.select("prediction", "artist_name").groupBy("prediction").agg(collect_list("artist_name").as("similar_artists"))
+        val names2 = names.join(predictions.select("artist_name","prediction"), Seq("prediction"))
+        names2.select("artist_name","similar_artists").show(10, false)
     }
 
     def create_artist_dataframe(data: DataFrame): DataFrame = {
@@ -219,9 +186,6 @@ object Query {
         val groupedArtist = artistData.groupBy("artist_id")
         val artist_infos = groupedArtist.agg(
             first("artist_name").as("artist_name"),
-        //    first("artist_location").as("artist_location"),
-        //    first("artist_latitude").as("artist_latitude"),
-        //    first("artist_longitude").as("artist_longitude"),
             count("artist_id").as("nbSong"),
             avg("duration").as("avgSongDuration"),
             avg("loudness").as("avgSongLoudness"),

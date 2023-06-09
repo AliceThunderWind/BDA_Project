@@ -176,10 +176,11 @@ Pour la question 4, les données ont été utilisées avec un k-Means pour teste
 
 ### Optimisation
 
+Les optimisations réalisées dans ce projet consistaient essentiellement à faire des sélections sur les données avant de faire des traitements pour alléger le temps de traitement. Nous avons aussi dû utiliser une méthode non natives ce qui peut avoir comme effet de ralentir le traitements.
 
 ### Results
 
-**Question 1**
+#### Question 1
 
 - Quels sont les genres les plus populaires ?
 
@@ -200,7 +201,7 @@ Sans grande surprise, le pays qui détient le plus grand nombre d'artistes est l
 L'année avec le plus de chansons produite est 2006. On peut observer qu'au fil du temps, le nombre de chansons produites augmente constamment, et plus particulièrement à partir des années 90. En 2010, le nombre est bien plus faible comparé aux valeurs des années 2000, cela s'explique par le fait que notre dataset comprend les données jusqu'en 2010.
 
 
-**Question 2**
+#### Question 2
 
 - Quel est le niveau sonore moyen et le BPM moyen (battement par minute) par genre musical ?
 
@@ -212,7 +213,7 @@ On peut voir que les battements par minute de chaque genre se situent en moyenne
 
 // TODO
 
-**Question 3**
+#### Question 3
 
 -  Classification on artiste_genre: Model fine tuning results
 ![test](./img/results_q3_part1.jpeg)
@@ -246,7 +247,7 @@ Nous affichons ensuite les moyennes des caractéristiques pour le k-means effect
 
 Nous pouvons ensuite analyser si les musiques obtenues sont cohérentes avec les moyennes obtenues sur les caractéristiques. Dans cet exemple, nous avons un tempo plus élevé que la moyenne pour le cluster 0, et une duration plus élevée pour le cluster 2. En affichant les 20 premières musiques de ces deux clusters, nous pouvons analyser que le tempo du cluster 0 sont effectivement plus élevés que sur le cluster 2.
 
-```
+```md
 First 20 musics of cluster 0 :
 +------------------------+------------------------------------------------+---------+-------+--------------------------------------------------------------------------------------+
 |artist_name             |title                                           |duration |tempo  |artist_genre                                                                          |
@@ -276,7 +277,7 @@ First 20 musics of cluster 0 :
 
 Nous pouvons également analyser que la duration des musiques du cluster 2 est en moyenne bien plus élevée que la duration des musiques du cluster 0.
 
-```
+```md
 First 20 musics of cluster 2 :
 +----------------------------------------------------+-------------------------------------------------------------+---------+-------+-----------------------------------------------------------------------------------+
 |artist_name                                         |title                                                        |duration |tempo  |artist_genre                                                                       |
@@ -304,9 +305,11 @@ First 20 musics of cluster 2 :
 +----------------------------------------------------+-------------------------------------------------------------+---------+-------+-----------------------------------------------------------------------------------+
 ```
 
-**Question 4**
+#### Question 4
 
-// TODO : explainations
+Comme on s'y attend, le nombre d'artistes par cluster diminue avec le nombre de clusters. Ceci a un impact sur les autres mesures. En effet, lorsque les clusters sont plus petits, il y a moins de chances de trouver les bons artistes dans le cluster.
+
+De manière globale, on voit que les clusters créés ne correspondent pas aux artistes similaires donnés dans le dataset.
 
 ![average artist per cluster](./img/image.png)
 

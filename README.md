@@ -13,7 +13,13 @@ Les moteurs de recommandation, dès bien présents sur internet, tels que ceux d
 
 ### Téléchargement du dataset
 
+Le dataset est disponible dans les liens ci-dessous.
+
+Le dataset en entier : http://millionsongdataset.com/pages/getting-dataset/
+
 Le sub dataset : http://labrosa.ee.columbia.edu/~dpwe/tmp/millionsongsubset.tar.gz
+
+Pour convertir les fichiers .h5 en .parquet, il suffit de lancer le script `main.py` sous le commentaire `DATA AUGMENTATION - ANALYTICS`
 
 ### Description du dataset
 Pour commencer, nous sommes partis d'un dataset publié par Audioscrobbler, le moteur de recommandation de last.fm, l’un des principaux sites de radio. D’après leur README, le dataset serait en continuelle augmentation. Cependant, nous n’avons accès qu’à une version antérieure, datant du 6 mai 2005, et très limitée en termes de catégories de données. Ainsi, nous avons décidé de partir sur un autre dataset opensource, dénommé "the Million Song Dataset". Le dataset est constitué d'un million d'échantillons d'analyses de chansons, ce qui représente une taille totale de 280 Go. Le jeu de données contient les catégories suivantes :
@@ -214,7 +220,7 @@ On peut voir que les battements par minute de chaque genre se situent en moyenne
 
 ![test](./img/results_q2_part2.png)
 
-// TODO
+Le loudness correspond à la différence entre le niveau sonore minimum et maximum. Il caractérise ainsi la stabilité sonore d'une musique. Par example, le rock aura tendance à avoir un loudness bien plus important de part le type d'instruments utilisés (guitare électrique, basse...)
 
 #### Question 3
 

@@ -113,21 +113,24 @@ object Query {
         // Select meaningful columns for the clustering
         val features_for_kmeans = Array("duration", "key", "loudness", "tempo", "time_signature")
         val scaledData = preprocess_data(data, features_for_kmeans)
-        val dataset = data.select(features_for_kmeans.head, features_for_kmeans.tail: _*)
 
         // Find the best silhouettes
-        val silhouettes = get_silhouettes(scaledData, 2, 10)
+        val minClusters: Int = 2
+        val maxClusters: Int = 12
+        val silhouettes = get_silhouettes(scaledData, minClusters, maxClusters)
         println(s"Silhouettes with squared euclidean distance :")
         println(silhouettes.mkString(", "))
 
         // Trains a k-means model.
-        val nClusters = 6
+        // Get the number of clusters which yields the maximum silhouette
+        val maxVal: Double = silhouettes.max
+        val nClusters: Int = silhouettes.indexOf(maxVal) + minClusters
         val predictions = kmeans_predict_show(scaledData, nClusters, features_for_kmeans)
 
         // Print the song of a playlist
         val features_to_show = Array("artist_name", "title", "duration", "tempo", "artist_genre")
-        show_predicted_musics(data, predictions, 0, 10, features_to_show)
-        show_predicted_musics(data, predictions, 5, 10, features_to_show)
+        show_predicted_musics(data, predictions, 0, 20, features_to_show)
+        show_predicted_musics(data, predictions, 2, 20, features_to_show)
 
         // question 4:
         // Dans une optique de recommandation d'un artiste à un utilisateur,
@@ -139,6 +142,8 @@ object Query {
         // Select meaningful columns for the clustering
         val my_features = Array("duration", "key", "loudness", "tempo", "time_signature")
         val dataset = data.select(my_features.head, my_features.tail: _*)
+        println(s"Selected data for k-means:")
+        dataset.show(10)
 
         // Define the assembler
         val assembler = new VectorAssembler()
@@ -185,7 +190,7 @@ object Query {
         val predictions = model.transform(data)
 
         // Shows the result.
-        println("Cluster Centers: ")
+        println(s"Cluster Centers for nClusters = $nClusters : ")
         println(features_for_kmeans.mkString(", "))
         model.clusterCenters.foreach(println)
         return predictions

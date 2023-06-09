@@ -6,7 +6,7 @@
 
 **Cours :** Big Data Analytics
 
-## Sujet: Recommandation de musique à partir du dataset the ≈
+## Sujet: Recommandation de musique à partir du dataset the `Million Song Dataset`
 
 ### Contexte
 Les moteurs de recommandation, dès bien présents sur internet, tels que ceux d’Amazon ou de Spotify, sont reconnus pour leur performance mais surtout leur accessibilité et leur intuitivité d’utilisation. Le projet s’inscrit dans cette tendance et conduira au développement d’un moteur de recommandation de musiques basé sur des méthodes statistiques, Scala et MLlibs.

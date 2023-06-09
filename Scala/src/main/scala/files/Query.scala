@@ -1,5 +1,15 @@
 package files
 
+import org.apache.spark.SparkContext
+import org.apache.spark.ml.Pipeline
+import org.apache.spark.ml.classification.{DecisionTreeClassificationModel, DecisionTreeClassifier, MultilayerPerceptronClassifier, RandomForestClassifier}
+import org.apache.spark.ml.clustering.KMeans
+import org.apache.spark.ml.evaluation.{ClusteringEvaluator, MulticlassClassificationEvaluator}
+import org.apache.spark.ml.feature._
+import org.apache.spark.ml.linalg.{DenseVector, Vector}
+import org.apache.spark.sql.functions._
+import org.apache.spark.sql.{DataFrame, SparkSession}
+
 import org.apache.spark.ml.clustering.KMeans
 import org.apache.spark.ml.evaluation.ClusteringEvaluator
 import org.apache.spark.ml.feature.{Normalizer, StandardScaler, VectorAssembler, MinMaxScaler, MinMaxScalerModel}
@@ -12,6 +22,7 @@ import org.apache.spark.sql.functions.{col, regexp_replace, round}
 import org.apache.spark.sql.functions.array_contains
 import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator
 import org.apache.spark.sql.types._
+import org.apache.spark.ml.param.Param
 import org.apache.spark.ml.{Pipeline, PipelineModel}
 import org.apache.spark.ml.feature.{OneHotEncoder, StringIndexer}
 import org.apache.spark.ml.classification.LogisticRegression
@@ -42,7 +53,12 @@ import org.apache.spark.ml.regression.DecisionTreeRegressionModel
 import org.apache.spark.ml.regression.DecisionTreeRegressor
 import org.apache.spark.ml.regression.{RandomForestRegressionModel, RandomForestRegressor}
 import org.apache.spark.ml.classification.RandomForestClassifier
+import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder}
 
+
+
+import scala.collection.mutable
+import scala.collection.mutable.{ArrayBuffer, Map}
 
 import scala.collection.mutable.Map
 import java.time.Instant
@@ -69,20 +85,20 @@ object Query {
     def main(args: Array[String]): Unit = {
         val data: DataFrame = read_file(parquetFile)
         // question 1: which year holds the highest number of produced tracks ?
-        //val groupedYear = groupByCount(data,"year").filter(col("year") =!= 0)
+        val groupedYear = groupByCount(data,"year").filter(col("year") =!= 0)
         // which country is home to the highest number of artists ?
-        //val groupedLocation = groupByCount(data,"artist_location")
+        val groupedLocation = groupByCount(data,"artist_location")
         // which are the most popular music genre ?
-        //val groupedGenre = uniqueGenreCount(data, columnName = "artist_terms")
-        //groupedGenre.show()
+        val groupedGenre = uniqueGenreCount(data, columnName = "artist_terms")
+        groupedGenre.show()
 
         // question 2: what is the average BPM per music genre?
-        //val listGenre = groupedGenre.select("term").collect().map(_.getString(0)).toList
-        //val avgBPM = avgMetricbyGenre(data, "tempo", listGenre)
-        //val avgBPMResults: Unit = printResults(avgBPM, "tempo")
+        val listGenre = groupedGenre.select("term").collect().map(_.getString(0)).toList
+        val avgBPM = avgMetricbyGenre(data, "tempo", listGenre)
+        val avgBPMResults: Unit = printResults(avgBPM, "tempo")
         // what is the average loudness per music genre?
-        //val avgLoudness = avgMetricbyGenre(data, "loudness", listGenre)
-        //val avgLoudnessResults: Unit = printResults(avgLoudness, "loudness")
+        val avgLoudness = avgMetricbyGenre(data, "loudness", listGenre)
+        val avgLoudnessResults: Unit = printResults(avgLoudness, "loudness")
 
         // question 3:
         // Data transformation
@@ -93,10 +109,114 @@ object Query {
         DecisionTree(scaledFeatures)
         randomforest(scaledFeatures)
 
+        // question 3: how to predict the music genre from features like dB, tempo, scale etc.
+        // Select meaningful columns for the clustering
+        val features_for_kmeans = Array("duration", "key", "loudness", "tempo", "time_signature")
+        val scaledData = preprocess_data(data, features_for_kmeans)
+        val dataset = data.select(features_for_kmeans.head, features_for_kmeans.tail: _*)
+
+        // Find the best silhouettes
+        val silhouettes = get_silhouettes(scaledData, 2, 10)
+        println(s"Silhouettes with squared euclidean distance :")
+        println(silhouettes.mkString(", "))
+
+        // Trains a k-means model.
+        val nClusters = 6
+        val predictions = kmeans_predict_show(scaledData, nClusters, features_for_kmeans)
+
+        // Print the song of a playlist
+        val features_to_show = Array("artist_name", "title", "duration", "tempo", "artist_genre")
+        show_predicted_musics(data, predictions, 0, 10, features_to_show)
+        show_predicted_musics(data, predictions, 5, 10, features_to_show)
+
         // question 4:
         // Dans une optique de recommandation d'un artiste à un utilisateur,
         // comment pourrait-on mesurer la similarité entre artistes ?
         question4(data)
+    }
+
+    private def preprocess_data(data: DataFrame, columns: Array[String]): DataFrame = {
+        // Select meaningful columns for the clustering
+        val my_features = Array("duration", "key", "loudness", "tempo", "time_signature")
+        val dataset = data.select(my_features.head, my_features.tail: _*)
+
+        // Define the assembler
+        val assembler = new VectorAssembler()
+          .setInputCols(my_features)
+          .setOutputCol("features")
+
+        // Transform the DataFrame using the VectorAssembler
+        val assembledData = assembler.transform(dataset)
+
+        // Create a StandardScaler instance
+        val scaler = new StandardScaler()
+          .setInputCol("features")
+          .setOutputCol("scaledFeatures")
+          .setWithMean(true) // Optionally remove the mean from the feature vector
+          .setWithStd(true) // Optionally scale the features to unit standard deviation
+
+        // Compute summary statistics and generate the scaler model
+        val scalerModel = scaler.fit(assembledData)
+
+        // Transform the DataFrame to apply scaling
+        val scaledData: DataFrame = scalerModel.transform(assembledData)
+        return scaledData
+    }
+    private def kmeans_prediction(data: DataFrame, nClusters: Int): DataFrame = {
+        // Trains a k-means model.
+        val kmeans = new KMeans().setK(nClusters)
+          .setFeaturesCol("scaledFeatures")
+          .setSeed(1L)
+        val model = kmeans.fit(data)
+
+        // Make predictions
+        val predictions = model.transform(data)
+        return predictions
+    }
+
+    private def kmeans_predict_show(data: DataFrame, nClusters: Int, features_for_kmeans: Array[String]): DataFrame = {
+        // Trains a k-means model.
+        val kmeans = new KMeans().setK(nClusters)
+          .setFeaturesCol("scaledFeatures")
+          .setSeed(1L)
+        val model = kmeans.fit(data)
+
+        // Make predictions
+        val predictions = model.transform(data)
+
+        // Shows the result.
+        println("Cluster Centers: ")
+        println(features_for_kmeans.mkString(", "))
+        model.clusterCenters.foreach(println)
+        return predictions
+    }
+
+    private def get_silhouettes(data: DataFrame, minClusters: Int, maxClusters: Int): ArrayBuffer[Double]  = {
+        // Loop and store results
+        val silhouettes = ArrayBuffer[Double]() // Mutable collection to store results
+
+        for (nClusters <- minClusters to maxClusters) {
+            val predictions = kmeans_prediction(data, nClusters) // Call the function with the current value
+            // Evaluate clustering by computing Silhouette score
+            val evaluator = new ClusteringEvaluator()
+
+            val silhouette = evaluator.evaluate(predictions)
+            silhouettes += silhouette // Store the result in the collection
+        }
+        return silhouettes
+    }
+
+    private def show_predicted_musics(data: DataFrame, predictions: DataFrame, cluster_id: Int, musics_to_show: Int, features_to_print: Array[String]) = {
+        // Add row index to data
+        val dataWithIndex = data.withColumn("index", monotonically_increasing_id())
+        // Add row index to predictions
+        val predictionCol = predictions.select("prediction")
+        val predictionsWithIndex = predictionCol.withColumn("index", monotonically_increasing_id())
+        val filteredSongsDF = dataWithIndex.join(predictionsWithIndex, Seq("index"))
+          .filter(col("prediction") === cluster_id)
+        val filteredSongsFeatures = filteredSongsDF.select(features_to_print.head, features_to_print.tail: _*)
+        println(s"First $musics_to_show musics of cluster $cluster_id :")
+        filteredSongsFeatures.show(musics_to_show, false)
     }
 
     def read_file(string: String): DataFrame = {
@@ -322,7 +442,7 @@ object Query {
 
         // Step 3: Define the feature transformation
         val featureAssembler = new VectorAssembler()
-          .setInputCols(Array("loudness", "tempo", "duration", "time_signature"))
+          .setInputCols(Array("loudness_sc", "tempo_sc", "duration_sc", "time_signature"))
           .setOutputCol("features")
 
         // Step 4: Select a supervised learning algorithm (Logistic Regression)
@@ -356,7 +476,7 @@ object Query {
     }
 
     def DecisionTree(df: DataFrame): Unit = {
-        // Split the data into training and test sets (30% held out for testing).
+        // Split the data into training and test sets (20% held out for testing).
         val Array(trainingData, testData) = df.randomSplit(Array(0.8, 0.2))
         // Automatically identify categorical features, and index them.
         // Here, we treat features with > 4 distinct values as continuous.
@@ -409,7 +529,7 @@ object Query {
     }
 
     def randomforest(df: DataFrame): Unit = {
-        // Split the data into training and test sets (30% held out for testing).
+        // Split the data into training and test sets (20% held out for testing).
         val Array(trainingData, testData) = df.randomSplit(Array(0.8, 0.2))
         // Automatically identify categorical features, and index them.
         // Here, we treat features with > 4 distinct values as continuous.
@@ -432,8 +552,8 @@ object Query {
           .setLabelCol("filtered_genre_index")
           .setFeaturesCol("indexedFeatures")
           .setNumTrees(200)
-          .setMaxDepth(10) // Adjust the maxDepth value
-          .setMaxBins(32) // Adjust the maxBins value
+          .setMaxDepth(5) // Adjust the maxDepth value
+          .setMaxBins(50) // Adjust the maxBins value
           .setFeatureSubsetStrategy("all") // or "all", "sqrt", "log2", or a fraction value
           .setMinInstancesPerNode(50) // Adjust the minInstancesPerNode value
           .setSubsamplingRate(0.8)
@@ -442,20 +562,54 @@ object Query {
         val pipeline = new Pipeline()
           .setStages(Array(assembler, featureIndexer, dt))
 
-        // Train model. This also runs the indexer.
-        val model = pipeline.fit(trainingData)
+        // Define the parameter grid (although we are using fixed parameters).
+        val paramGrid = new ParamGridBuilder().build()
 
-        // Make predictions.
-        val predictions = model.transform(testData)
+        // Unquote this section to run the parameter gridsearch. If you do, you need to quote the previous line of code
+        //val paramGrid = new ParamGridBuilder()
+          //.addGrid(dt.maxDepth, Array(5, 10, 15))
+          //.addGrid(dt.maxBins, Array(16, 32, 48))
+          //.addGrid(dt.numTrees, Array(50, 100, 200))
+          //.build()
 
-        // Select example rows to display.
-        predictions.select("prediction", "filtered_genre_index", "features").show(20)
-
-        // Select (prediction, true label) and compute test error.
+        // Set up cross-validation.
         val evaluator = new MulticlassClassificationEvaluator()
           .setLabelCol("filtered_genre_index")
           .setPredictionCol("prediction")
           .setMetricName("accuracy")
+
+        // Unquote this section to run the cross validation validator
+        val crossValidator = new CrossValidator()
+          .setEstimator(pipeline)
+          .setEvaluator(evaluator)
+          .setEstimatorParamMaps(paramGrid)
+          .setNumFolds(5) // Set the number of folds for cross-validation
+
+        // Unquote this section to run the cross validation and find the best model.
+        val cvModel = crossValidator.fit(trainingData)
+
+        // Unquote this section to Print the results at each fold.
+        val avgMetrics = cvModel.avgMetrics
+        avgMetrics.zipWithIndex.foreach { case (metric, foldIndex) =>
+            println(s"Model accuracy across all 5 folds: $metric")
+        }
+
+        // Unquote this section to get the best model and its parameters.
+        //val bestModel = cvModel.bestModel.asInstanceOf[PipelineModel]
+        //val bestParams: Map[Param[_], Any] = Map(bestModel.stages.last.extractParamMap().toSeq.map(paramPair => paramPair.param -> paramPair.value): _*)
+
+        // Unquote this section to print the best params at the end of the gridSearch :
+        //println("Best Model Parameters:")
+        //bestParams.foreach { case (param, value) =>
+            //println(s"${param.name}: $value")
+        //}
+
+        // Make predictions on the test data using the best model.
+        val predictions = cvModel.transform(testData)
+
+        // Select example rows to display.
+        predictions.select("prediction", "filtered_genre_index", "features").show(20)
+
         val accuracy = evaluator.evaluate(predictions)
         println(s"Accuracy on test data = $accuracy")
     }
@@ -565,5 +719,7 @@ object Query {
         })
         return df.withColumn("similar_artists", parseStringList(df("similar_artists")))
     }
+
+
 }
 

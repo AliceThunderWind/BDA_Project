@@ -319,4 +319,11 @@ De manière globale, on voit que les clusters créés ne correspondent pas aux a
 
 ### Possible future enhancements
 
-// TODO
+Afin de pouvoir plus confortablement afficher les résultats obtenus, nous aurions pu plutôt effectuer le projet dans un notebook Zeppelin.
+
+Pour des raisons de RAM, nous n'avons pas pu utiliser l'intégralité du dataset qui pèse 280 Go. Une amélioration serait de plutôt faire tourner le code dans le cloud, afin de pouvoir supporter un dataset plus grand.
+
+Pour effectuer une classification des musiques et d'artistes de meilleure qualité, une amélioration possible serait de faire de la features selection afin d'identifier les caractéristiques qui sont les plus utiles à la classification de nos musiques.
+
+Une amélioration possible serait également de créer des nouvelles features à partir des features existantes du dataset, afin d'avoir plus d'informations pertinentes pour effectuer les classifications.
+

@@ -11,6 +11,10 @@
 ### Contexte
 Les moteurs de recommandation, dès bien présents sur internet, tels que ceux d’Amazon ou de Spotify, sont reconnus pour leur performance, mais surtout leur accessibilité et leur intuitivité d’utilisation. Le projet s’inscrit dans cette tendance et conduira au développement d’un moteur de recommandation de musiques basé sur des méthodes statistiques, Scala et MLlibs. 
 
+### Téléchargement du dataset
+
+Le sub dataset : http://labrosa.ee.columbia.edu/~dpwe/tmp/millionsongsubset.tar.gz
+
 ### Description du dataset
 Pour commencer, nous sommes partis d'un dataset publié par Audioscrobbler, le moteur de recommandation de last.fm, l’un des principaux sites de radio. D’après leur README, le dataset serait en continuelle augmentation. Cependant, nous n’avons accès qu’à une version antérieure, datant du 6 mai 2005, et très limitée en termes de catégories de données. Ainsi, nous avons décidé de partir sur un autre dataset opensource, dénommé "the Million Song Dataset". Le dataset est constitué d'un million d'échantillons d'analyses de chansons, ce qui représente une taille totale de 280 Go. Le jeu de données contient les catégories suivantes :
 
@@ -199,7 +203,6 @@ Sans grande surprise, le pays qui détient le plus grand nombre d'artistes est l
 ![test](./img/results_q1_part2.png)
 
 L'année avec le plus de chansons produite est 2006. On peut observer qu'au fil du temps, le nombre de chansons produites augmente constamment, et plus particulièrement à partir des années 90. En 2010, le nombre est bien plus faible comparé aux valeurs des années 2000, cela s'explique par le fait que notre dataset comprend les données jusqu'en 2010.
-
 
 #### Question 2
 

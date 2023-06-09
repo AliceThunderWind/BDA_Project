@@ -7,63 +7,12 @@ import org.apache.spark.ml.clustering.KMeans
 import org.apache.spark.ml.evaluation.{ClusteringEvaluator, MulticlassClassificationEvaluator}
 import org.apache.spark.ml.feature._
 import org.apache.spark.ml.linalg.{DenseVector, Vector}
+import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
-import org.apache.spark.ml.clustering.KMeans
-import org.apache.spark.ml.evaluation.ClusteringEvaluator
-import org.apache.spark.ml.feature.{Normalizer, StandardScaler, VectorAssembler, MinMaxScaler, MinMaxScalerModel}
-import org.apache.spark.ml.linalg.{Vectors, Vector}
-import org.apache.commons.lang.mutable.Mutable
-import org.apache.spark.SparkContext
-import org.apache.spark.sql.{ColumnName, DataFrame, Row, SparkSession}
-import org.apache.spark.sql.functions._
-import org.apache.spark.sql.functions.{col, regexp_replace, round}
-import org.apache.spark.sql.functions.array_contains
-import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator
-import org.apache.spark.sql.types._
-import org.apache.spark.ml.param.Param
-import org.apache.spark.ml.{Pipeline, PipelineModel}
-import org.apache.spark.ml.feature.{OneHotEncoder, StringIndexer}
-import org.apache.spark.ml.classification.LogisticRegression
-import scala.collection.mutable.ArraySeq
-import org.apache.spark.ml.linalg.{SparseVector, DenseVector, Vector, Vectors}
-import dev.ludovic.netlib.NativeBLAS
-import org.apache.spark.ml.classification.MultilayerPerceptronClassifier
-import org.nd4j.linalg.dataset.api.iterator.DataSetIterator
-import org.deeplearning4j.datasets.iterator.IteratorDataSetIterator
-import org.deeplearning4j.nn.conf.MultiLayerConfiguration
-import org.deeplearning4j.nn.conf.layers.DenseLayer
-import org.deeplearning4j.nn.conf.layers.OutputLayer
-import org.deeplearning4j.nn.multilayer.MultiLayerNetwork
-import org.deeplearning4j.nn.weights.WeightInit
-import org.deeplearning4j.optimize.listeners.ScoreIterationListener
-import org.nd4j.linalg.activations.Activation
-import org.nd4j.linalg.lossfunctions.LossFunctions
-import org.deeplearning4j.nn.conf.NeuralNetConfiguration
-import org.nd4j.linalg.learning.config.RmsProp
-import org.apache.spark.ml.classification.LinearSVC
-import org.apache.spark.ml.classification.DecisionTreeClassificationModel
-import org.apache.spark.ml.classification.DecisionTreeClassifier
-import org.apache.spark.ml.feature.{IndexToString, StringIndexer, VectorIndexer}
-import org.apache.spark.ml.Pipeline
-import org.apache.spark.ml.evaluation.RegressionEvaluator
-import org.apache.spark.ml.feature.VectorIndexer
-import org.apache.spark.ml.regression.DecisionTreeRegressionModel
-import org.apache.spark.ml.regression.DecisionTreeRegressor
-import org.apache.spark.ml.regression.{RandomForestRegressionModel, RandomForestRegressor}
-import org.apache.spark.ml.classification.RandomForestClassifier
-import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder}
-
-
-
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, Map}
-
-import scala.collection.mutable.Map
-import java.time.Instant
-import scala.collection.mutable
-import breeze.numerics.I
 
 
 object Query {
@@ -83,11 +32,13 @@ object Query {
 
     // Functions
     def main(args: Array[String]): Unit = {
-        val data: DataFrame = read_file(parquetFile)
+        val data: DataFrame = read_file()
         // question 1: which year holds the highest number of produced tracks ?
         val groupedYear = groupByCount(data,"year").filter(col("year") =!= 0)
+        groupedYear.show()
         // which country is home to the highest number of artists ?
         val groupedLocation = groupByCount(data,"artist_location")
+        groupedLocation.show()
         // which are the most popular music genre ?
         val groupedGenre = uniqueGenreCount(data, columnName = "artist_terms")
         groupedGenre.show()
@@ -95,10 +46,10 @@ object Query {
         // question 2: what is the average BPM per music genre?
         val listGenre = groupedGenre.select("term").collect().map(_.getString(0)).toList
         val avgBPM = avgMetricbyGenre(data, "tempo", listGenre)
-        val avgBPMResults: Unit = printResults(avgBPM, "tempo")
+        printResults(avgBPM, "tempo")
         // what is the average loudness per music genre?
         val avgLoudness = avgMetricbyGenre(data, "loudness", listGenre)
-        val avgLoudnessResults: Unit = printResults(avgLoudness, "loudness")
+        printResults(avgLoudness, "loudness")
 
         // question 3:
         // Data transformation
@@ -140,14 +91,13 @@ object Query {
 
     private def preprocess_data(data: DataFrame, columns: Array[String]): DataFrame = {
         // Select meaningful columns for the clustering
-        val my_features = Array("duration", "key", "loudness", "tempo", "time_signature")
-        val dataset = data.select(my_features.head, my_features.tail: _*)
+        val dataset = data.select(columns.head, columns.tail: _*)
         println(s"Selected data for k-means:")
         dataset.show(10)
 
         // Define the assembler
         val assembler = new VectorAssembler()
-          .setInputCols(my_features)
+          .setInputCols(columns)
           .setOutputCol("features")
 
         // Transform the DataFrame using the VectorAssembler
@@ -165,7 +115,7 @@ object Query {
 
         // Transform the DataFrame to apply scaling
         val scaledData: DataFrame = scalerModel.transform(assembledData)
-        return scaledData
+        scaledData
     }
     private def kmeans_prediction(data: DataFrame, nClusters: Int): DataFrame = {
         // Trains a k-means model.
@@ -176,7 +126,7 @@ object Query {
 
         // Make predictions
         val predictions = model.transform(data)
-        return predictions
+        predictions
     }
 
     private def kmeans_predict_show(data: DataFrame, nClusters: Int, features_for_kmeans: Array[String]): DataFrame = {
@@ -193,7 +143,7 @@ object Query {
         println(s"Cluster Centers for nClusters = $nClusters : ")
         println(features_for_kmeans.mkString(", "))
         model.clusterCenters.foreach(println)
-        return predictions
+        predictions
     }
 
     private def get_silhouettes(data: DataFrame, minClusters: Int, maxClusters: Int): ArrayBuffer[Double]  = {
@@ -208,10 +158,10 @@ object Query {
             val silhouette = evaluator.evaluate(predictions)
             silhouettes += silhouette // Store the result in the collection
         }
-        return silhouettes
+        silhouettes
     }
 
-    private def show_predicted_musics(data: DataFrame, predictions: DataFrame, cluster_id: Int, musics_to_show: Int, features_to_print: Array[String]) = {
+    private def show_predicted_musics(data: DataFrame, predictions: DataFrame, cluster_id: Int, musics_to_show: Int, features_to_print: Array[String]) : Unit = {
         // Add row index to data
         val dataWithIndex = data.withColumn("index", monotonically_increasing_id())
         // Add row index to predictions
@@ -224,11 +174,11 @@ object Query {
         filteredSongsFeatures.show(musics_to_show, false)
     }
 
-    def read_file(string: String): DataFrame = {
+    def read_file(): DataFrame = {
         // Read the Parquet file into a DataFrame and sort it
         val data: DataFrame = Data.readParquetFile(parquetFile)
         // Get the unique values of the feature "year" and remove rows where year = 0
-        return data
+        data
     }
 
     def groupByCount(data: DataFrame, columnName: String): DataFrame = {
@@ -238,7 +188,7 @@ object Query {
         val sortedData: DataFrame = filteredData.sort(col(columnName).asc)
         // group the dataframe
         val groupedData = sortedData.groupBy(columnName).count().sort(col("count").desc)
-        return groupedData
+        groupedData
     }
 
     def groupByMean(data: DataFrame, columnName: String): DataFrame = {
@@ -248,7 +198,7 @@ object Query {
         val sortedData: DataFrame = filteredData.sort(col(columnName).asc)
         // group the dataframe by "year"
         val groupedData = sortedData.groupBy(columnName).mean().sort(col("mean").desc)
-        return groupedData
+        groupedData
     }
 
     def avgMetricbyGenre(data: DataFrame, columnName: String, listGenre: List[String]): mutable.Map[String, Double] = {
@@ -272,7 +222,7 @@ object Query {
             val avgMetric: Double = if (count > 0) metricTotal / count else 0.0 // Calculate the average metric by dividing the total by the count
             result(term) = avgMetric
         }
-        return result
+        result
     }
 
     def printResults(result: Map[String, Double], columnName: String): Unit = {
@@ -288,7 +238,7 @@ object Query {
         val termCounts = dfExploded.groupBy("term").agg(count("*").as("count")).orderBy(col("count").desc)
         val filteredTermCount = termCounts.withColumn("term", regexp_replace(col("term"), "[\\[\\]]", ""))
 
-        return filteredTermCount
+        filteredTermCount
     }
 
     def preprocessing(dataFrame: DataFrame): DataFrame = {
@@ -328,18 +278,18 @@ object Query {
         // Min/max scaling of the features
         val scaledFeatures = minmaxScaling(addCst)
 
-        return scaledFeatures
+        scaledFeatures
 
     }
 
-    def NanCount(dataFrame: DataFrame) = {
+    def NanCount(dataFrame: DataFrame) : Unit = {
         val nanCountsPerColumn = dataFrame.columns.map(colName => dataFrame.filter(col(colName).isNull || col(colName).isNaN).count())
         dataFrame.columns.zip(nanCountsPerColumn).foreach { case (colName, count) =>
             // println(s"Column '$colName' has $count NaN value(s).")
         }
     }
 
-    def uniqueVal(dataFrame: DataFrame, columnName: String) = {
+    def uniqueVal(dataFrame: DataFrame, columnName: String) : Unit =  {
         val uniqueValues: Array[Any] = dataFrame.select(columnName).distinct().collect().map(_.get(0))
         uniqueValues.foreach(println)
     }
@@ -399,14 +349,13 @@ object Query {
         val finalDF: DataFrame = one_hot_encoding(transformedDF.filter(col("filtered_genre") =!= "").drop("artist_terms"), "filtered_genre")
           .withColumn("filtered_genre_index", col("filtered_genre_index").cast("int"))
 
-        return finalDF
+        finalDF
     }
 
     def applyTrimAndLowerCase(df: DataFrame, columnName: String): DataFrame = {
         val trimAndLowerCase = udf((arr: Seq[String]) => arr.map(_.trim.toLowerCase))
         df.withColumn(columnName, trimAndLowerCase(col(columnName)))
-
-        return df
+        df
     }
 
     def one_hot_encoding(df: DataFrame, columnName: String): DataFrame = {
@@ -432,10 +381,10 @@ object Query {
         // Transform the data using the pipeline model
         val encodedData = model.transform(df).drop("filtered_genre_encoded")
 
-        return encodedData
+        encodedData
     }
 
-    def multilayerperceptron(df: DataFrame) = {
+    def multilayerperceptron(df: DataFrame) : Unit =  {
         val layers = Array[Int](4, 10, 10, 5) // Adjust the number of nodes in each layer
         val maxIter = 50 // Adjust the maximum number of iterations
         val blockSize = 128 // Adjust the block size
@@ -595,7 +544,7 @@ object Query {
 
         // Unquote this section to Print the results at each fold.
         val avgMetrics = cvModel.avgMetrics
-        avgMetrics.zipWithIndex.foreach { case (metric, foldIndex) =>
+        avgMetrics.zipWithIndex.foreach { case (metric, _) =>
             println(s"Model accuracy across all 5 folds: $metric")
         }
 
@@ -619,7 +568,7 @@ object Query {
         println(s"Accuracy on test data = $accuracy")
     }
 
-    def findMissingValues(df: DataFrame) = {
+    def findMissingValues(df: DataFrame): Unit = {
         val booleanToInt = udf((value: Boolean) => if (value) 1 else 0)
         val missingValues = df.select(df.columns.map(c => sum(booleanToInt(col(c).isNull || col(c).isNaN)).alias(c)): _*)
         missingValues.show()
@@ -714,7 +663,7 @@ object Query {
             avg("loudness").as("avgLoudness"),
             avg("energy").as("avgEnergy")
         )
-        return artist_infos.na.drop()
+        artist_infos.na.drop()
     }
 
     def get_similar_artists(data: DataFrame): DataFrame = {
@@ -722,9 +671,7 @@ object Query {
         val parseStringList = spark.udf.register("parseStringList", (chaine: String) => {
             chaine.drop(1).dropRight(1).split(",").toList.map(_.drop(1).dropRight(1))
         })
-        return df.withColumn("similar_artists", parseStringList(df("similar_artists")))
+        df.withColumn("similar_artists", parseStringList(df("similar_artists")))
     }
 
-
 }
-

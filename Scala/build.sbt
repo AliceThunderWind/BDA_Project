@@ -1,4 +1,4 @@
-name := "r/places"
+name := "music_recommander"
 
 version := "1.0"
 

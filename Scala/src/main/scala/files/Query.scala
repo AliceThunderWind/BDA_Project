@@ -1,60 +1,17 @@
 package files
 
-import org.apache.spark.ml.clustering.KMeans
-import org.apache.spark.ml.evaluation.ClusteringEvaluator
-import org.apache.spark.ml.feature.{Normalizer, StandardScaler, VectorAssembler, MinMaxScaler, MinMaxScalerModel}
-import org.apache.spark.ml.linalg.{Vectors, Vector}
-import org.apache.commons.lang.mutable.Mutable
 import org.apache.spark.SparkContext
-import org.apache.spark.sql.{ColumnName, DataFrame, Row, SparkSession}
-import org.apache.spark.sql.functions._
-import org.apache.spark.sql.functions.{col, regexp_replace, round}
-import org.apache.spark.sql.functions.array_contains
-import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator
-import org.apache.spark.sql.types._
-import org.apache.spark.ml.{Pipeline, PipelineModel}
-import org.apache.spark.ml.feature.{OneHotEncoder, StringIndexer}
-import org.apache.spark.ml.classification.LogisticRegression
-import scala.collection.mutable.ArraySeq
-import org.apache.spark.ml.clustering.KMeans
-import org.apache.spark.ml.feature.VectorAssembler
-import org.apache.spark.ml.evaluation.ClusteringEvaluator
-import org.apache.spark.ml.feature.MinMaxScaler
-import org.apache.spark.ml.feature.MinMaxScalerModel
-import org.apache.spark.ml.feature.StandardScaler
-import org.apache.spark.ml.linalg.Vector
-import scala.collection.mutable.ArrayBuffer
-import org.apache.spark.ml.linalg.{SparseVector, DenseVector, Vector, Vectors}
-import dev.ludovic.netlib.NativeBLAS
-import org.apache.spark.ml.classification.MultilayerPerceptronClassifier
-import org.nd4j.linalg.dataset.api.iterator.DataSetIterator
-import org.deeplearning4j.datasets.iterator.IteratorDataSetIterator
-import org.deeplearning4j.nn.conf.MultiLayerConfiguration
-import org.deeplearning4j.nn.conf.layers.DenseLayer
-import org.deeplearning4j.nn.conf.layers.OutputLayer
-import org.deeplearning4j.nn.multilayer.MultiLayerNetwork
-import org.deeplearning4j.nn.weights.WeightInit
-import org.deeplearning4j.optimize.listeners.ScoreIterationListener
-import org.nd4j.linalg.activations.Activation
-import org.nd4j.linalg.lossfunctions.LossFunctions
-import org.deeplearning4j.nn.conf.NeuralNetConfiguration
-import org.nd4j.linalg.learning.config.RmsProp
-import org.apache.spark.ml.classification.LinearSVC
-import org.apache.spark.ml.classification.DecisionTreeClassificationModel
-import org.apache.spark.ml.classification.DecisionTreeClassifier
-import org.apache.spark.ml.feature.{IndexToString, StringIndexer, VectorIndexer}
 import org.apache.spark.ml.Pipeline
-import org.apache.spark.ml.evaluation.RegressionEvaluator
-import org.apache.spark.ml.feature.VectorIndexer
-import org.apache.spark.ml.regression.DecisionTreeRegressionModel
-import org.apache.spark.ml.regression.DecisionTreeRegressor
-import org.apache.spark.ml.regression.{RandomForestRegressionModel, RandomForestRegressor}
-import org.apache.spark.ml.classification.RandomForestClassifier
+import org.apache.spark.ml.classification.{DecisionTreeClassificationModel, DecisionTreeClassifier, MultilayerPerceptronClassifier, RandomForestClassifier}
+import org.apache.spark.ml.clustering.KMeans
+import org.apache.spark.ml.evaluation.{ClusteringEvaluator, MulticlassClassificationEvaluator}
+import org.apache.spark.ml.feature._
+import org.apache.spark.ml.linalg.{DenseVector, Vector}
+import org.apache.spark.sql.functions._
+import org.apache.spark.sql.{DataFrame, SparkSession}
 
-import scala.collection.mutable.Map
-import java.time.Instant
 import scala.collection.mutable
-import breeze.numerics.I
+import scala.collection.mutable.{ArrayBuffer, Map}
 
 
 object Query {
@@ -76,20 +33,20 @@ object Query {
     def main(args: Array[String]): Unit = {
         val data: DataFrame = read_file(parquetFile)
         // question 1: which year holds the highest number of produced tracks ?
-        //val groupedYear = groupByCount(data,"year").filter(col("year") =!= 0)
+        val groupedYear = groupByCount(data,"year").filter(col("year") =!= 0)
         // which country is home to the highest number of artists ?
-        //val groupedLocation = groupByCount(data,"artist_location")
+        val groupedLocation = groupByCount(data,"artist_location")
         // which are the most popular music genre ?
-        //val groupedGenre = uniqueGenreCount(data, columnName = "artist_terms")
-        //groupedGenre.show()
+        val groupedGenre = uniqueGenreCount(data, columnName = "artist_terms")
+        groupedGenre.show()
 
         // question 2: what is the average BPM per music genre?
-        //val listGenre = groupedGenre.select("term").collect().map(_.getString(0)).toList
-        //val avgBPM = avgMetricbyGenre(data, "tempo", listGenre)
-        //val avgBPMResults: Unit = printResults(avgBPM, "tempo")
+        val listGenre = groupedGenre.select("term").collect().map(_.getString(0)).toList
+        val avgBPM = avgMetricbyGenre(data, "tempo", listGenre)
+        val avgBPMResults: Unit = printResults(avgBPM, "tempo")
         // what is the average loudness per music genre?
-        //val avgLoudness = avgMetricbyGenre(data, "loudness", listGenre)
-        //val avgLoudnessResults: Unit = printResults(avgLoudness, "loudness")
+        val avgLoudness = avgMetricbyGenre(data, "loudness", listGenre)
+        val avgLoudnessResults: Unit = printResults(avgLoudness, "loudness")
 
         // question 3:
         // Data transformation

@@ -143,7 +143,20 @@ Utiliser les genres musicaux avec la plus grande densité (rock, pop, etc.) comm
 - Étape 5: Entraîner le modèle.
 - Étape 6: Faire des prédictions.
 - Étape 7: Évaluer le modèle.
-- Étape 8: Affiner et itérer si nécessaire.
+- Étape 8: Fine tuning sur les hyperparamètres: GridSEarch + cross validation 5 fold
+````
+val paramGrid = new ParamGridBuilder()
+    .addGrid(dt.maxDepth, Array(5, 10, 15))
+    .addGrid(dt.maxBins, Array(16, 32, 48))
+    .addGrid(dt.numTrees, Array(50, 100, 200))
+    .build()
+val crossValidator = new CrossValidator()
+    .setEstimator(pipeline)
+    .setEvaluator(evaluator)
+    .setEstimatorParamMaps(paramGrid)
+    .setNumFolds(5)
+`````
+
 - Etape 9: Comparer les résultats aux autres modèles
 
 
@@ -201,9 +214,28 @@ On peut voir que les battements par minute de chaque genre se situent en moyenne
 
 **Question 3**
 
--  Model fine tuning results
+-  Classification on artiste_genre: Model fine tuning results
 ![test](./img/results_q3_part1.jpeg)
 
+Random Forest: The accuracy ranges from 43.00% to 44.00%, with the highest accuracy achieved at 200 trees. The accuracy is relatively consistent across different max depths.
+Decision Tree: The accuracy ranges from 44.70% to 38.6%, with the highest accuracy achieved at a max depth of 5. Increasing the max depth to 20 leads to a decrease in accuracy.
+MLP: The accuracy ranges from 42.40% to 41.1%. It seems that increasing the number of layers or iterations does not necessarily lead to higher accuracy. The choice of solver and step size can also affect accuracy, but not in our case.
+Overall, the Random Forest model performs slightly better than the Decision Tree and MLP models based on the provided accuracy results. 
+
+We also added a gridSearch to find the optimal pair of hyperparameter that maximizes accuracy. Here are the results:
+```
+Best Model Parameters:
+maxBins: 50
+impurity: gini
+maxDepth: 5
+subsamplingRate: 0.8
+numTrees: 200
+```
+And finally performed a cross validation from the optimal set of parameters found previously to also maximize the accuracy of our model shuffling 5 fold our dataset. Here's the final result: 4280228556034745.
+
+Overall, the gridSearch et the cross validation didn't improve much the accuracy of our model. As a matter of fact, all models seem to output simiar accuracies so the problem may lie inside the data lebeling itself, and since we do not know how the dataset was labeled, it will be difficult to find any correlation.
+
+=====
 Pour le clustering, nous avons effectué une sélection du nombre de clusters permettant d'obtenir la signature la plus élevée :
 
 ![test](./img/results_q3_part2_silhouettes.png)
@@ -271,7 +303,6 @@ First 20 musics of cluster 2 :
 |Rachael Starr                                       |Till There Was You (John Creamer & Stephane K Remix)         |608.23465|127.996|['House', 'trance', 'dance', 'female vocal', 'electronic']                         |
 +----------------------------------------------------+-------------------------------------------------------------+---------+-------+-----------------------------------------------------------------------------------+
 ```
-
 
 **Question 4**
 

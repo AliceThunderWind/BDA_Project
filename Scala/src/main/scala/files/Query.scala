@@ -10,8 +10,60 @@ import org.apache.spark.ml.linalg.{DenseVector, Vector}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
+import org.apache.spark.ml.clustering.KMeans
+import org.apache.spark.ml.evaluation.ClusteringEvaluator
+import org.apache.spark.ml.feature.{Normalizer, StandardScaler, VectorAssembler, MinMaxScaler, MinMaxScalerModel}
+import org.apache.spark.ml.linalg.{Vectors, Vector}
+import org.apache.commons.lang.mutable.Mutable
+import org.apache.spark.SparkContext
+import org.apache.spark.sql.{ColumnName, DataFrame, Row, SparkSession}
+import org.apache.spark.sql.functions._
+import org.apache.spark.sql.functions.{col, regexp_replace, round}
+import org.apache.spark.sql.functions.array_contains
+import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator
+import org.apache.spark.sql.types._
+import org.apache.spark.ml.param.Param
+import org.apache.spark.ml.{Pipeline, PipelineModel}
+import org.apache.spark.ml.feature.{OneHotEncoder, StringIndexer}
+import org.apache.spark.ml.classification.LogisticRegression
+import scala.collection.mutable.ArraySeq
+import org.apache.spark.ml.linalg.{SparseVector, DenseVector, Vector, Vectors}
+import dev.ludovic.netlib.NativeBLAS
+import org.apache.spark.ml.classification.MultilayerPerceptronClassifier
+import org.nd4j.linalg.dataset.api.iterator.DataSetIterator
+import org.deeplearning4j.datasets.iterator.IteratorDataSetIterator
+import org.deeplearning4j.nn.conf.MultiLayerConfiguration
+import org.deeplearning4j.nn.conf.layers.DenseLayer
+import org.deeplearning4j.nn.conf.layers.OutputLayer
+import org.deeplearning4j.nn.multilayer.MultiLayerNetwork
+import org.deeplearning4j.nn.weights.WeightInit
+import org.deeplearning4j.optimize.listeners.ScoreIterationListener
+import org.nd4j.linalg.activations.Activation
+import org.nd4j.linalg.lossfunctions.LossFunctions
+import org.deeplearning4j.nn.conf.NeuralNetConfiguration
+import org.nd4j.linalg.learning.config.RmsProp
+import org.apache.spark.ml.classification.LinearSVC
+import org.apache.spark.ml.classification.DecisionTreeClassificationModel
+import org.apache.spark.ml.classification.DecisionTreeClassifier
+import org.apache.spark.ml.feature.{IndexToString, StringIndexer, VectorIndexer}
+import org.apache.spark.ml.Pipeline
+import org.apache.spark.ml.evaluation.RegressionEvaluator
+import org.apache.spark.ml.feature.VectorIndexer
+import org.apache.spark.ml.regression.DecisionTreeRegressionModel
+import org.apache.spark.ml.regression.DecisionTreeRegressor
+import org.apache.spark.ml.regression.{RandomForestRegressionModel, RandomForestRegressor}
+import org.apache.spark.ml.classification.RandomForestClassifier
+import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder}
+
+
+
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, Map}
+
+import scala.collection.mutable.Map
+import java.time.Instant
+import scala.collection.mutable
+import breeze.numerics.I
 
 
 object Query {
@@ -395,7 +447,7 @@ object Query {
 
         // Step 3: Define the feature transformation
         val featureAssembler = new VectorAssembler()
-          .setInputCols(Array("loudness", "tempo", "duration", "time_signature"))
+          .setInputCols(Array("loudness_sc", "tempo_sc", "duration_sc", "time_signature"))
           .setOutputCol("features")
 
         // Step 4: Select a supervised learning algorithm (Logistic Regression)
@@ -429,7 +481,7 @@ object Query {
     }
 
     def DecisionTree(df: DataFrame): Unit = {
-        // Split the data into training and test sets (30% held out for testing).
+        // Split the data into training and test sets (20% held out for testing).
         val Array(trainingData, testData) = df.randomSplit(Array(0.8, 0.2))
         // Automatically identify categorical features, and index them.
         // Here, we treat features with > 4 distinct values as continuous.
@@ -482,7 +534,7 @@ object Query {
     }
 
     def randomforest(df: DataFrame): Unit = {
-        // Split the data into training and test sets (30% held out for testing).
+        // Split the data into training and test sets (20% held out for testing).
         val Array(trainingData, testData) = df.randomSplit(Array(0.8, 0.2))
         // Automatically identify categorical features, and index them.
         // Here, we treat features with > 4 distinct values as continuous.
@@ -505,8 +557,8 @@ object Query {
           .setLabelCol("filtered_genre_index")
           .setFeaturesCol("indexedFeatures")
           .setNumTrees(200)
-          .setMaxDepth(10) // Adjust the maxDepth value
-          .setMaxBins(32) // Adjust the maxBins value
+          .setMaxDepth(5) // Adjust the maxDepth value
+          .setMaxBins(50) // Adjust the maxBins value
           .setFeatureSubsetStrategy("all") // or "all", "sqrt", "log2", or a fraction value
           .setMinInstancesPerNode(50) // Adjust the minInstancesPerNode value
           .setSubsamplingRate(0.8)
@@ -515,20 +567,54 @@ object Query {
         val pipeline = new Pipeline()
           .setStages(Array(assembler, featureIndexer, dt))
 
-        // Train model. This also runs the indexer.
-        val model = pipeline.fit(trainingData)
+        // Define the parameter grid (although we are using fixed parameters).
+        val paramGrid = new ParamGridBuilder().build()
 
-        // Make predictions.
-        val predictions = model.transform(testData)
+        // Unquote this section to run the parameter gridsearch. If you do, you need to quote the previous line of code
+        //val paramGrid = new ParamGridBuilder()
+          //.addGrid(dt.maxDepth, Array(5, 10, 15))
+          //.addGrid(dt.maxBins, Array(16, 32, 48))
+          //.addGrid(dt.numTrees, Array(50, 100, 200))
+          //.build()
 
-        // Select example rows to display.
-        predictions.select("prediction", "filtered_genre_index", "features").show(20)
-
-        // Select (prediction, true label) and compute test error.
+        // Set up cross-validation.
         val evaluator = new MulticlassClassificationEvaluator()
           .setLabelCol("filtered_genre_index")
           .setPredictionCol("prediction")
           .setMetricName("accuracy")
+
+        // Unquote this section to run the cross validation validator
+        val crossValidator = new CrossValidator()
+          .setEstimator(pipeline)
+          .setEvaluator(evaluator)
+          .setEstimatorParamMaps(paramGrid)
+          .setNumFolds(5) // Set the number of folds for cross-validation
+
+        // Unquote this section to run the cross validation and find the best model.
+        val cvModel = crossValidator.fit(trainingData)
+
+        // Unquote this section to Print the results at each fold.
+        val avgMetrics = cvModel.avgMetrics
+        avgMetrics.zipWithIndex.foreach { case (metric, foldIndex) =>
+            println(s"Model accuracy across all 5 folds: $metric")
+        }
+
+        // Unquote this section to get the best model and its parameters.
+        //val bestModel = cvModel.bestModel.asInstanceOf[PipelineModel]
+        //val bestParams: Map[Param[_], Any] = Map(bestModel.stages.last.extractParamMap().toSeq.map(paramPair => paramPair.param -> paramPair.value): _*)
+
+        // Unquote this section to print the best params at the end of the gridSearch :
+        //println("Best Model Parameters:")
+        //bestParams.foreach { case (param, value) =>
+            //println(s"${param.name}: $value")
+        //}
+
+        // Make predictions on the test data using the best model.
+        val predictions = cvModel.transform(testData)
+
+        // Select example rows to display.
+        predictions.select("prediction", "filtered_genre_index", "features").show(20)
+
         val accuracy = evaluator.evaluate(predictions)
         println(s"Accuracy on test data = $accuracy")
     }

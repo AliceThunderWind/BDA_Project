@@ -123,7 +123,7 @@ Les méthodes qui ont été appliquées sont :
 
 Pour effectuer la partie clustering, un StandardScaler a été appliqué sur les données d'intérêt avec une moyenne de 0 et un écart type de 1.
 
-Dalia/AS:  vos méthodes de preprocessing
+En ce qui concerne le clustering des artistes, il a fallu d'abord générer des données avec des features spécifiques aux artistes pour pouvoir les traiter. Ces données ont été récupérées du dataset initial, en faisant des aggrégations sur certaines features relatives aux fonctions, comme le nombre de chansons totales par artistes, ou le tempo moyen des chansons. D'autres features ont pu être récupérées directement du dataset de base comme le nom de l'artiste ou sa localisation. Les données ont subit également un préprocessing avec un standard scaler.
 
 ### Algorithmes
 
@@ -159,11 +159,7 @@ Le pipeline est le suivant :
 - Regroupement des musiques en fonctions du k-means avec la meilleure silhouette.
 - Évaluation du modèle en fonction des caractéristiques moyennes obtenues.
 
-Pour la question 4, on cherche à trouver, une relation de similarité entre artistes, également par une technique de clustering.
-
-Pour ce faire, il a fallu d'abord générer des données avec des features spécifiques aux artistes pour pouvoir les traiter. Ces données ont été récupérées du dataset initial, en faisant des aggrégations sur certaines features relatives aux fonctions, comme le nombre de chansons totales par artistes, ou le tempo moyen des chansons. D'autres features ont pu être récupérées directement du dataset de base comme le nom de l'artiste ou sa localisation. Les données ont subit également un préprocessing avec un standard scaler.
-
-Ensuite, ces données ont été utilisées avec un k-Means pour tester différents nombres de cluster (5, 10, 20, 50, 100). À partir de ces clusters, différentes mesures ont été effectuées pour tenter d'évaluer la fiabilité du clustering. Ainsi, nous avons récupéré le nombre moyen d'artistes par cluster, le score de silhouette, et calculé un score accuracy en fonction de la feature "similar artists" présente dans les données originales.
+Pour la question 4, les données ont été utilisées avec un k-Means pour tester différents nombres de cluster (5, 10, 20, 50, 100). À partir de ces clusters, différentes mesures ont été effectuées pour tenter d'évaluer la fiabilité du clustering. Ainsi, nous avons récupéré le nombre moyen d'artistes par cluster, le score de silhouette, et calculé un score accuracy en fonction de la feature "similar artists" présente dans les données originales.
 
 ### Optimisation
 

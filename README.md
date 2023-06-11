@@ -13,13 +13,16 @@ Les moteurs de recommandation, dès bien présents sur internet, tels que ceux d
 
 ### Téléchargement du dataset
 
-Le dataset est disponible dans les liens ci-dessous.
+Le subset de données est disponible dans le git, directement dans le projet Scala au chemin suivant: "Scala/src/main/data/data.parquet". Il est tracké par Git LFS (Git Large file Storage) afin de ne pas limiter les performances du répertoire projet.
 
-Le dataset en entier : http://millionsongdataset.com/pages/getting-dataset/
-
-Le sub dataset : http://labrosa.ee.columbia.edu/~dpwe/tmp/millionsongsubset.tar.gz
-
-Pour convertir les fichiers .h5 en .parquet, il suffit de lancer le script `main.py` sous le commentaire `DATA AUGMENTATION - ANALYTICS`
+Si vous souhaitez regénérer le subset de données (prévoir 20-30 minutes), veuillez suivre les étapes suivantes:
+```
+  python -m venv venv
+  source ./venv/bin/activate
+  pip install --upgrade pip
+  pip install -r requirements.txt
+  python main.py
+```
 
 ### Description du dataset
 Pour commencer, nous sommes partis d'un dataset publié par Audioscrobbler, le moteur de recommandation de last.fm, l’un des principaux sites de radio. D’après leur README, le dataset serait en continuelle augmentation. Cependant, nous n’avons accès qu’à une version antérieure, datant du 6 mai 2005, et très limitée en termes de catégories de données. Ainsi, nous avons décidé de partir sur un autre dataset opensource, dénommé "the Million Song Dataset". Le dataset est constitué d'un million d'échantillons d'analyses de chansons, ce qui représente une taille totale de 280 Go. Le jeu de données contient les catégories suivantes :
